@@ -6,3 +6,5 @@ photo-manager.db-wal
 .env
 
 *.log
+
+thumbnails/
