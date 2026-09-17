@@ -1,0 +1,8 @@
+node_modules/
+photo-manager.db
+photo-manager.db-shm
+photo-manager.db-wal
+
+.env
+
+*.log
