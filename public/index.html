@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,30 @@
     </header>
 
     <main>
+        <section id="folder-section">
+            <div id="breadcrumb"></div>
+
+            <button id="parent-folder-button">
+                1つ上へ
+            </button>
+
+            <button id="create-folder-button">
+                新しいフォルダ
+            </button>
+
+            <div id="folder-list"></div>
+        </section>
+
+        <section id="upload-section">
+            <input type="file" id="file-input" accept="image/*,video/*" multiple>
+
+            <button id="upload-button">
+                アップロード
+            </button>
+
+            <div id="upload-status"></div>
+        </section>
+
         <div id="media-list"></div>
     </main>
 
@@ -26,4 +51,5 @@
 
     <script src="main.js"></script>
 </body>
+
 </html>

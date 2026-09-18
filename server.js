@@ -156,8 +156,23 @@ app.post("/api/upload", upload.array("files"), async (req, res) => {
 
         const uploadedFiles = [];
 
+        const registerMedia = db.prepare(`
+            INSERT INTO media (
+                path,
+                type,
+                file_size,
+                modified_at
+            )
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(path) DO UPDATE SET
+                type = excluded.type,
+                file_size = excluded.file_size,
+                modified_at = excluded.modified_at
+        `);
+
         for (const file of req.files) {
             const temporaryPath = file.path;
+
             const destinationPath = path.join(
                 directory,
                 file.originalname
@@ -168,15 +183,31 @@ app.post("/api/upload", upload.array("files"), async (req, res) => {
                 destinationPath
             );
 
-            uploadedFiles.push(
-                path.join(relativePath, file.originalname)
+            const stat = await fs.stat(destinationPath);
+
+            const mediaPath = path.join(
+                relativePath,
+                file.originalname
             );
+
+            const mediaType = getMediaType(
+                file.originalname
+            );
+
+            registerMedia.run(
+                mediaPath,
+                mediaType,
+                stat.size,
+                Math.floor(stat.mtimeMs)
+            );
+
+            uploadedFiles.push(mediaPath);
         }
 
         console.log(
             uploadedFiles.length +
             " 件のファイルを " +
-            relativePath +
+            (relativePath || "Memory") +
             " にアップロードしました。"
         );
 
@@ -185,6 +216,7 @@ app.post("/api/upload", upload.array("files"), async (req, res) => {
             count: uploadedFiles.length,
             files: uploadedFiles
         });
+
     } catch (error) {
         console.error(error);
 
@@ -194,35 +226,96 @@ app.post("/api/upload", upload.array("files"), async (req, res) => {
     }
 });
 
-app.get("/api/media", (req, res) => {
+app.get("/api/media", async (req, res) => {
     try {
-        const page = Number.parseInt(req.query.page) || 1;
-        const limit = Number.parseInt(req.query.limit) || 100;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 100;
+        const relativePath = req.query.path || "";
+
+        if (page < 1 || limit < 1) {
+            return res.status(400).json({
+                error: "Invalid page or limit"
+            });
+        }
+
+        // パスが安全か確認
+        getSafeMediaPath(relativePath);
 
         const offset = (page - 1) * limit;
 
-        const media = db.prepare(`
-            SELECT
-                id,
-                path,
-                type,
-                file_size,
-                modified_at
-            FROM media
-            ORDER BY id
-            LIMIT ? OFFSET ?
-        `).all(limit, offset);
+        let media;
+        let total;
+
+        if (relativePath === "") {
+            // ルートフォルダ
+            // 「/」を含まないパスだけ取得
+            media = db.prepare(`
+                SELECT
+                    id,
+                    path,
+                    type,
+                    file_size,
+                    modified_at
+                FROM media
+                WHERE instr(path, '/') = 0
+                ORDER BY path
+                LIMIT ? OFFSET ?
+            `).all(limit, offset);
+
+            total = db.prepare(`
+                SELECT COUNT(*) AS count
+                FROM media
+                WHERE instr(path, '/') = 0
+            `).get().count;
+
+        } else {
+            // 現在のフォルダ直下だけ取得
+            const prefix = relativePath + "/%";
+            const deepPrefix = relativePath + "/%/%";
+
+            media = db.prepare(`
+                SELECT
+                    id,
+                    path,
+                    type,
+                    file_size,
+                    modified_at
+                FROM media
+                WHERE path LIKE ?
+                AND path NOT LIKE ?
+                ORDER BY path
+                LIMIT ? OFFSET ?
+            `).all(
+                prefix,
+                deepPrefix,
+                limit,
+                offset
+            );
+
+            total = db.prepare(`
+                SELECT COUNT(*) AS count
+                FROM media
+                WHERE path LIKE ?
+                AND path NOT LIKE ?
+            `).get(
+                prefix,
+                deepPrefix
+            ).count;
+        }
 
         res.json({
             media: media,
             page: page,
-            limit: limit
+            limit: limit,
+            total: total,
+            hasMore: offset + media.length < total
         });
+
     } catch (error) {
         console.error(error);
 
         res.status(500).json({
-            error: "Failed to read media database"
+            error: "Failed to fetch media"
         });
     }
 });
