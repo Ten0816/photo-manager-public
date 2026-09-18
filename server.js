@@ -278,7 +278,6 @@ app.delete("/api/media", async (req, res) => {
 app.put("/api/media", async (req, res) => {
     try {
         const relativePath = req.query.path;
-        const newName = req.body.name;
 
         if (!relativePath) {
             return res.status(400).json({
@@ -286,11 +285,34 @@ app.put("/api/media", async (req, res) => {
             });
         }
 
-        if (!newName) {
+        const inputName = req.body.name;
+
+        if (!inputName) {
             return res.status(400).json({
                 error: "File name is required"
             });
         }
+
+        // 元ファイルの拡張子を取得
+        const oldExtension =
+            path.extname(relativePath).toLowerCase();
+
+        // 入力された名前から拡張子を除去
+        const newBaseName =
+            path.basename(
+                inputName,
+                path.extname(inputName)
+            );
+
+        if (!newBaseName) {
+            return res.status(400).json({
+                error: "File name is required"
+            });
+        }
+
+        // 元の拡張子を強制的に付ける
+        const newName =
+            newBaseName + oldExtension;
 
         if (
             newName.includes("/") ||

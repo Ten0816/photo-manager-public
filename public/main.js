@@ -395,10 +395,30 @@ function createMediaItem(media) {
         const currentName =
             media.path.split("/").pop();
 
-        const newName = prompt(
+        const extension =
+            "." +
+            currentName.split(".").pop();
+
+        const baseName =
+            currentName.substring(
+                0,
+                currentName.length - extension.length
+            );
+
+        const newBaseName = prompt(
             "新しいファイル名を入力してください。",
-            currentName
+            baseName
         );
+
+        if (
+            !newBaseName ||
+            newBaseName === baseName
+        ) {
+            return;
+        }
+
+        const newName =
+            newBaseName + extension;
 
         if (!newName || newName === currentName) {
             return;
