@@ -5,6 +5,17 @@ const sharp = require("sharp");
 const fs = require("fs/promises");
 const path = require("path");
 const db = require("./database");
+const os = require("os");
+const fsSync = require("fs");
+
+const UPLOAD_TEMP_DIR = path.join(
+    os.tmpdir(),
+    "photo-manager-uploads"
+);
+
+fsSync.mkdirSync(UPLOAD_TEMP_DIR, {
+    recursive: true
+});
 
 const { execFile } = require("child_process");
 const { promisify } = require("util");
@@ -33,7 +44,7 @@ function getSafeMediaPath(relativePath) {
 
 const storage = multer.diskStorage({
     destination: (req, file, callback) => {
-        callback(null, MEDIA_DIR);
+        callback(null, UPLOAD_TEMP_DIR);
     },
 
     filename: (req, file, callback) => {
@@ -42,7 +53,32 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({
-    storage: storage
+    storage: storage,
+
+    fileFilter: (req, file, callback) => {
+        const extension =
+            path.extname(file.originalname).toLowerCase();
+
+        const allowedExtensions = [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".mp4",
+            ".mov",
+            ".avi",
+            ".mkv",
+            ".webm"
+        ];
+
+        if (!allowedExtensions.includes(extension)) {
+            return callback(
+                new Error("Unsupported file type")
+            );
+        }
+
+        callback(null, true);
+    }
 });
 
 app.use(express.static("public"));
@@ -173,21 +209,29 @@ app.post("/api/upload", upload.array("files"), async (req, res) => {
         for (const file of req.files) {
             const temporaryPath = file.path;
 
-            const destinationPath = path.join(
+            const destinationPath =
+            await getUniqueFilePath(
                 directory,
                 file.originalname
             );
 
-            await fs.rename(
+            await fs.copyFile(
                 temporaryPath,
                 destinationPath
             );
 
+            await fs.unlink(
+                temporaryPath
+            );
+
             const stat = await fs.stat(destinationPath);
+
+            const savedFileName =
+                path.basename(destinationPath);
 
             const mediaPath = path.join(
                 relativePath,
-                file.originalname
+                savedFileName
             );
 
             const mediaType = getMediaType(
@@ -492,6 +536,33 @@ function getMediaType(fileName) {
     }
 
     return "video";
+}
+
+async function getUniqueFilePath(directory, fileName) {
+    const extension = path.extname(fileName);
+    const baseName = path.basename(fileName, extension);
+
+    let filePath = path.join(directory, fileName);
+    let counter = 1;
+
+    while (true) {
+        try {
+            await fs.access(filePath);
+
+            filePath = path.join(
+                directory,
+                baseName + " (" + counter + ")" + extension
+            );
+
+            counter++;
+        } catch (error) {
+            if (error.code === "ENOENT") {
+                return filePath;
+            }
+
+            throw error;
+        }
+    }
 }
 
 app.listen(PORT, () => {
