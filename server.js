@@ -179,6 +179,102 @@ app.post("/api/folders", async (req, res) => {
     }
 });
 
+app.delete("/api/folders", async (req, res) => {
+    try {
+        const relativePath = req.query.path || "";
+
+        if (!relativePath) {
+            return res.status(400).json({
+                error: "Cannot delete root folder"
+            });
+        }
+
+        const folderPath =
+            getSafeMediaPath(relativePath);
+
+        const entries = await fs.readdir(
+            folderPath,
+            {
+                withFileTypes: true
+            }
+        );
+
+        if (entries.length > 0) {
+            return res.status(409).json({
+                error: "フォルダが空ではありません。"
+            });
+        }
+
+        await fs.rmdir(folderPath);
+
+        res.json({
+            message: "Folder deleted",
+            path: relativePath
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === "ENOENT") {
+            return res.status(404).json({
+                error: "Folder not found"
+            });
+        }
+
+        res.status(500).json({
+            error: "Failed to delete folder"
+        });
+    }
+});
+
+app.delete("/api/media", async (req, res) => {
+    try {
+        const relativePath = req.query.path;
+
+        if (!relativePath) {
+            return res.status(400).json({
+                error: "Media path is required"
+            });
+        }
+
+        const filePath =
+            getSafeMediaPath(relativePath);
+
+        const stat = await fs.stat(filePath);
+
+        if (!stat.isFile()) {
+            return res.status(400).json({
+                error: "Target is not a file"
+            });
+        }
+
+        await fs.unlink(filePath);
+
+        db.prepare(`
+            DELETE FROM media
+            WHERE path = ?
+        `).run(relativePath);
+
+        res.json({
+            message: "Media deleted",
+            path: relativePath
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === "ENOENT") {
+            return res.status(404).json({
+                error: "Media not found"
+            });
+        }
+
+        res.status(500).json({
+            error: "Failed to delete media"
+        });
+    }
+});
+
 app.post("/api/upload", (req, res) => {
     upload.array("files")(req, res, async (error) => {
         if (error) {

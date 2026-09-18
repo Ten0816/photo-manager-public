@@ -78,14 +78,67 @@ async function loadFolders() {
 
         for (const folder of data.folders) {
             const folderElement =
+                document.createElement("div");
+
+            const openButton =
                 document.createElement("button");
 
-            folderElement.textContent =
+            openButton.textContent =
                 "📁 " + folder.name;
 
-            folderElement.addEventListener("click", () => {
+            openButton.addEventListener("click", () => {
                 openFolder(folder.path);
             });
+
+            const deleteButton =
+                document.createElement("button");
+
+            deleteButton.textContent = "削除";
+
+            deleteButton.addEventListener("click", async (event) => {
+                event.stopPropagation();
+
+                const confirmed = confirm(
+                    "「" +
+                    folder.name +
+                    "」を削除しますか？"
+                );
+
+                if (!confirmed) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(
+                        "/api/folders?path=" +
+                        encodeURIComponent(folder.path),
+                        {
+                            method: "DELETE"
+                        }
+                    );
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            data.error ||
+                            "Failed to delete folder"
+                        );
+                    }
+
+                    await loadFolders();
+
+                } catch (error) {
+                    console.error(error);
+
+                    alert(
+                        error.message
+                    );
+                }
+            });
+
+            folderElement.appendChild(openButton);
+            folderElement.appendChild(deleteButton);
 
             folderList.appendChild(folderElement);
         }
@@ -274,13 +327,62 @@ function createMediaItem(media) {
 
     const name = document.createElement("div");
 
-    name.className = "media-name";
-    name.textContent = media.path;
+name.className = "media-name";
+name.textContent = media.path;
 
-    item.appendChild(preview);
-    item.appendChild(name);
+const deleteButton =
+    document.createElement("button");
 
-    mediaList.appendChild(item);
+deleteButton.textContent = "削除";
+
+deleteButton.addEventListener("click", async (event) => {
+    event.stopPropagation();
+
+    const confirmed = confirm(
+        "「" +
+        media.path +
+        "」を削除しますか？"
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            "/api/media?path=" +
+            encodeURIComponent(media.path),
+            {
+                method: "DELETE"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error ||
+                "Failed to delete media"
+            );
+        }
+
+        item.remove();
+
+    } catch (error) {
+        console.error(error);
+
+        alert(
+            "ファイルの削除に失敗しました。\n" +
+            error.message
+        );
+    }
+});
+
+item.appendChild(preview);
+item.appendChild(name);
+item.appendChild(deleteButton);
+
+mediaList.appendChild(item);
 }
 
 function openImage(url) {
@@ -397,7 +499,7 @@ uploadButton.addEventListener("click", async () => {
 
     uploadStatus.textContent =
         error.message;
-        
+
     } finally {
         uploadButton.disabled = false;
     }
