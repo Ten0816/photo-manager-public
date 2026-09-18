@@ -461,48 +461,79 @@ uploadButton.addEventListener("click", async () => {
 
     uploadButton.disabled = true;
     uploadStatus.textContent =
-        "アップロード中...";
+        "アップロード中... 0%";
 
-    try {
-        const response = await fetch(
-            "/api/upload?path=" +
-            encodeURIComponent(currentFolder),
-            {
-                method: "POST",
-                body: formData
-            }
-        );
+    const xhr = new XMLHttpRequest();
 
-        const data = await response.json();
+    xhr.open(
+        "POST",
+        "/api/upload?path=" +
+        encodeURIComponent(currentFolder)
+    );
 
-        if (!response.ok) {
-            throw new Error(
-                data.error || "Upload failed"
-            );
+    xhr.upload.addEventListener("progress", (event) => {
+        if (!event.lengthComputable) {
+            return;
         }
 
+        const progress =
+            Math.floor(
+                event.loaded / event.total * 100
+            );
+
         uploadStatus.textContent =
-            data.count +
-            " 件のアップロードが完了しました。";
+            "アップロード中... " +
+            progress +
+            "%";
+    });
 
-        fileInput.value = "";
+    xhr.addEventListener("load", async () => {
+        try {
+            const data = JSON.parse(xhr.responseText);
 
-        // 現在のフォルダのメディア一覧を更新
-        mediaList.innerHTML = "";
-        currentPage = 1;
-        hasMore = true;
+            if (xhr.status < 200 || xhr.status >= 300) {
+                throw new Error(
+                    data.error || "Upload failed"
+                );
+            }
 
-        await loadMedia();
+            uploadStatus.textContent =
+                data.count +
+                " 件のアップロードが完了しました。";
 
-    } catch (error) {
-    console.error(error);
+            fileInput.value = "";
 
-    uploadStatus.textContent =
-        error.message;
+            mediaList.innerHTML = "";
+            currentPage = 1;
+            hasMore = true;
 
-    } finally {
+            await loadMedia();
+
+        } catch (error) {
+            console.error(error);
+
+            uploadStatus.textContent =
+                error.message;
+        } finally {
+            uploadButton.disabled = false;
+        }
+    });
+
+    xhr.addEventListener("error", () => {
+        uploadStatus.textContent =
+            "アップロードに失敗しました。";
+
         uploadButton.disabled = false;
-    }
+    });
+
+    xhr.addEventListener("abort", () => {
+        uploadStatus.textContent =
+            "アップロードをキャンセルしました。";
+
+        uploadButton.disabled = false;
+    });
+
+    xhr.send(formData);
 });
 
 loadFolders();
