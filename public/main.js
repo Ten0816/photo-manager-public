@@ -711,7 +711,7 @@ function createImagePreview(
         "click",
         () => {
             openImage(
-                mediaUrl
+                media
             );
         }
     );
@@ -952,22 +952,65 @@ async function deleteMedia(
 /**
  * 画像を開く
  */
-function openImage(url) {
+function openImage(media) {
     modalContent.innerHTML = "";
 
-    const image =
-        document.createElement("img");
+    const image = document.createElement("img");
 
     image.src =
-        url;
+        "/media/" +
+        encodeURI(media.path);
 
-    modalContent.appendChild(
-        image
-    );
+    image.alt = media.path;
 
-    modal.classList.add(
-        "active"
-    );
+    modalContent.appendChild(image);
+
+    const exifInfo =
+        document.createElement("div");
+
+    exifInfo.className = "exif-info";
+
+    const takenAt =
+        formatTakenAt(media.taken_at);
+
+    const gps =
+        media.latitude !== null &&
+        media.longitude !== null
+            ? `${media.latitude}, ${media.longitude}`
+            : "記録されていません";
+
+    exifInfo.innerHTML = `
+        <div>
+            <strong>撮影日時</strong>
+            ${takenAt}
+        </div>
+
+        <div>
+            <strong>GPS</strong>
+            ${gps}
+        </div>
+    `;
+
+    modalContent.appendChild(exifInfo);
+
+    modal.classList.add("active");
+
+    // 背景ページをスクロールできなくする
+    document.body.style.overflow = "hidden";
+}
+
+function formatTakenAt(dateString) {
+    if (!dateString) {
+        return "記録されていません";
+    }
+
+    const date = new Date(dateString);
+
+    if (Number.isNaN(date.getTime())) {
+        return dateString;
+    }
+
+    return date.toLocaleString("ja-JP");
 }
 
 
@@ -1014,9 +1057,10 @@ function openVideo(url) {
 function closeModal() {
     modalContent.innerHTML = "";
 
-    modal.classList.remove(
-        "active"
-    );
+    modal.classList.remove("active");
+
+    // 背景ページのスクロールを元に戻す
+    document.body.style.overflow = "";
 }
 
 

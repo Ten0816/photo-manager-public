@@ -1412,6 +1412,7 @@ app.get(
                 await sharp(
                     mediaPath
                 )
+                    .rotate()
                     .resize({
                         width: 400,
                         height: 400,
