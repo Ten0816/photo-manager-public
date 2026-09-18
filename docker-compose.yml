@@ -15,6 +15,31 @@ services:
 
     restart: unless-stopped
 
+  photo-manager-scan:
+    build: .
+    container_name: photo-manager-scan
+    user: "1000:1003"
+
+    environment:
+      MEDIA_DIR: /data/Memory
+      DATABASE_PATH: /app/data/photo-manager.db
+
+    volumes:
+      - /mnt/photo-hdd/Memory:/data/Memory
+      - ./data:/app/data
+
+    command:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          node scan-media.js
+          sleep 300
+        done
+
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     container_name: photo-manager-nginx

@@ -4,7 +4,7 @@ const exifr = require("exifr");
 
 const db = require("./database");
 
-const MEDIA_DIR = "/mnt/photo-hdd/Memory";
+const MEDIA_DIR = process.env.MEDIA_DIR || "/data/Memory";
 
 async function scanDirectory(directory) {
     const entries = await fs.readdir(directory, {
@@ -46,22 +46,6 @@ async function scanDirectory(directory) {
         if (type === "image") {
             try {
                 const exif = await exifr.parse(fullPath);
-
-                if (exif) {
-                    const date =
-                        exif.DateTimeOriginal ??
-                        exif.CreateDate ??
-                        null;
-
-                    if (date instanceof Date) {
-                        takenAt = date.toISOString();
-                    } else if (date !== null) {
-                        takenAt = String(date);
-                    }
-
-                    latitude = exif.latitude ?? null;
-                    longitude = exif.longitude ?? null;
-                }
 
                 if (exif) {
                     const date =
