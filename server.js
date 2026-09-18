@@ -55,6 +55,10 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage: storage,
 
+    limits: {
+        fileSize: 10 * 1024 * 1024 * 1024
+    },
+
     fileFilter: (req, file, callback) => {
         const extension =
             path.extname(file.originalname).toLowerCase();
@@ -178,6 +182,13 @@ app.post("/api/folders", async (req, res) => {
 app.post("/api/upload", (req, res) => {
     upload.array("files")(req, res, async (error) => {
         if (error) {
+
+            if (error.code === "LIMIT_FILE_SIZE") {
+                return res.status(413).json({
+                    error: "ファイルサイズが大きすぎます。1ファイル10GBまでです。"
+                });
+            }
+
             if (error.message === "Unsupported file type") {
                 return res.status(400).json({
                     error: "対応していないファイル形式です。"
