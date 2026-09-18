@@ -175,99 +175,117 @@ app.post("/api/folders", async (req, res) => {
     }
 });
 
-app.post("/api/upload", upload.array("files"), async (req, res) => {
-    try {
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({
-                error: "No files uploaded"
+app.post("/api/upload", (req, res) => {
+    upload.array("files")(req, res, async (error) => {
+        if (error) {
+            if (error.message === "Unsupported file type") {
+                return res.status(400).json({
+                    error: "対応していないファイル形式です。"
+                });
+            }
+
+            console.error(error);
+
+            return res.status(500).json({
+                error: "Upload failed"
             });
         }
 
-        const relativePath = req.query.path || "";
-        const directory = getSafeMediaPath(relativePath);
+        try {
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({
+                    error: "No files uploaded"
+                });
+            }
 
-        await fs.mkdir(directory, {
-            recursive: true
-        });
+            const relativePath = req.query.path || "";
+            const directory = getSafeMediaPath(relativePath);
 
-        const uploadedFiles = [];
+            await fs.mkdir(directory, {
+                recursive: true
+            });
 
-        const registerMedia = db.prepare(`
-            INSERT INTO media (
-                path,
-                type,
-                file_size,
-                modified_at
-            )
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-                type = excluded.type,
-                file_size = excluded.file_size,
-                modified_at = excluded.modified_at
-        `);
+            const uploadedFiles = [];
 
-        for (const file of req.files) {
-            const temporaryPath = file.path;
+            const registerMedia = db.prepare(`
+                INSERT INTO media (
+                    path,
+                    type,
+                    file_size,
+                    modified_at
+                )
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
+                    type = excluded.type,
+                    file_size = excluded.file_size,
+                    modified_at = excluded.modified_at
+            `);
 
-            const destinationPath =
-            await getUniqueFilePath(
-                directory,
-                file.originalname
+            for (const file of req.files) {
+                const temporaryPath = file.path;
+
+                const destinationPath =
+                    await getUniqueFilePath(
+                        directory,
+                        file.originalname
+                    );
+
+                await fs.copyFile(
+                    temporaryPath,
+                    destinationPath
+                );
+
+                await fs.unlink(
+                    temporaryPath
+                );
+
+                const stat = await fs.stat(
+                    destinationPath
+                );
+
+                const savedFileName =
+                    path.basename(destinationPath);
+
+                const mediaPath = path.join(
+                    relativePath,
+                    savedFileName
+                );
+
+                const mediaType = getMediaType(
+                    savedFileName
+                );
+
+                registerMedia.run(
+                    mediaPath,
+                    mediaType,
+                    stat.size,
+                    Math.floor(stat.mtimeMs)
+                );
+
+                uploadedFiles.push(mediaPath);
+            }
+
+            console.log(
+                uploadedFiles.length +
+                " 件のファイルを " +
+                (relativePath || "Memory") +
+                " にアップロードしました。"
             );
 
-            await fs.copyFile(
-                temporaryPath,
-                destinationPath
-            );
+            res.json({
+                message: "Upload completed",
+                count: uploadedFiles.length,
+                files: uploadedFiles
+            });
 
-            await fs.unlink(
-                temporaryPath
-            );
+        } catch (error) {
+            console.error(error);
 
-            const stat = await fs.stat(destinationPath);
-
-            const savedFileName =
-                path.basename(destinationPath);
-
-            const mediaPath = path.join(
-                relativePath,
-                savedFileName
-            );
-
-            const mediaType = getMediaType(
-                file.originalname
-            );
-
-            registerMedia.run(
-                mediaPath,
-                mediaType,
-                stat.size,
-                Math.floor(stat.mtimeMs)
-            );
-
-            uploadedFiles.push(mediaPath);
+            res.status(500).json({
+                error: "Upload failed"
+            });
         }
-
-        console.log(
-            uploadedFiles.length +
-            " 件のファイルを " +
-            (relativePath || "Memory") +
-            " にアップロードしました。"
-        );
-
-        res.json({
-            message: "Upload completed",
-            count: uploadedFiles.length,
-            files: uploadedFiles
-        });
-
-    } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Upload failed"
-        });
-    }
+    });
 });
 
 app.get("/api/media", async (req, res) => {

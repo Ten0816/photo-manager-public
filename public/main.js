@@ -393,11 +393,11 @@ uploadButton.addEventListener("click", async () => {
         await loadMedia();
 
     } catch (error) {
-        console.error(error);
+    console.error(error);
 
-        uploadStatus.textContent =
-            "アップロードに失敗しました。";
-
+    uploadStatus.textContent =
+        error.message;
+        
     } finally {
         uploadButton.disabled = false;
     }
