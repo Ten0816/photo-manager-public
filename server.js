@@ -275,6 +275,210 @@ app.delete("/api/media", async (req, res) => {
     }
 });
 
+app.put("/api/media", async (req, res) => {
+    try {
+        const relativePath = req.query.path;
+        const newName = req.body.name;
+
+        if (!relativePath) {
+            return res.status(400).json({
+                error: "Media path is required"
+            });
+        }
+
+        if (!newName) {
+            return res.status(400).json({
+                error: "File name is required"
+            });
+        }
+
+        if (
+            newName.includes("/") ||
+            newName.includes("\\") ||
+            newName === "." ||
+            newName === ".."
+        ) {
+            return res.status(400).json({
+                error: "Invalid file name"
+            });
+        }
+
+        const oldPath =
+            getSafeMediaPath(relativePath);
+
+        const directory =
+            path.dirname(oldPath);
+
+        const newPath =
+            path.join(directory, newName);
+
+        // 新しいファイル名を含むパスが安全か確認
+        const relativeDirectory =
+            path.dirname(relativePath);
+
+        const newRelativePath =
+            path.join(
+                relativeDirectory === "."
+                    ? ""
+                    : relativeDirectory,
+                newName
+            );
+
+        getSafeMediaPath(newRelativePath);
+
+        // 同名ファイルが存在するか確認
+        try {
+            await fs.access(newPath);
+
+            return res.status(409).json({
+                error: "同じ名前のファイルがすでに存在します。"
+            });
+
+        } catch (error) {
+            if (error.code !== "ENOENT") {
+                throw error;
+            }
+        }
+
+        await fs.rename(
+            oldPath,
+            newPath
+        );
+
+        // SQLiteのパスを更新
+        db.prepare(`
+            UPDATE media
+            SET path = ?
+            WHERE path = ?
+        `).run(
+            newRelativePath,
+            relativePath
+        );
+
+        res.json({
+            message: "Media renamed",
+            oldPath: relativePath,
+            newPath: newRelativePath
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === "ENOENT") {
+            return res.status(404).json({
+                error: "Media not found"
+            });
+        }
+
+        res.status(500).json({
+            error: "Failed to rename media"
+        });
+    }
+});
+
+app.put("/api/folders", async (req, res) => {
+    try {
+        const relativePath = req.query.path || "";
+        const newName = req.body.name;
+
+        if (!relativePath) {
+            return res.status(400).json({
+                error: "Cannot rename root folder"
+            });
+        }
+
+        if (!newName) {
+            return res.status(400).json({
+                error: "Folder name is required"
+            });
+        }
+
+        if (
+            newName.includes("/") ||
+            newName.includes("\\") ||
+            newName === "." ||
+            newName === ".."
+        ) {
+            return res.status(400).json({
+                error: "Invalid folder name"
+            });
+        }
+
+        const oldPath =
+            getSafeMediaPath(relativePath);
+
+        const parentPath =
+            path.dirname(oldPath);
+
+        const newPath =
+            path.join(parentPath, newName);
+
+        // 新しいパスも安全か確認
+        const relativeParent =
+            path.dirname(relativePath);
+
+        const newRelativePath =
+            path.join(
+                relativeParent === "." ? "" : relativeParent,
+                newName
+            );
+
+        getSafeMediaPath(newRelativePath);
+
+        // 同名フォルダが存在するか確認
+        try {
+            await fs.access(newPath);
+
+            return res.status(409).json({
+                error: "同じ名前のフォルダがすでに存在します。"
+            });
+
+        } catch (error) {
+            if (error.code !== "ENOENT") {
+                throw error;
+            }
+        }
+
+        await fs.rename(
+            oldPath,
+            newPath
+        );
+
+        // SQLiteのパスを更新
+        const oldPrefix = relativePath + "/";
+        const newPrefix = newRelativePath + "/";
+
+        db.prepare(`
+            UPDATE media
+            SET path = ? || substr(path, ?)
+            WHERE path LIKE ?
+        `).run(
+            newPrefix,
+            oldPrefix.length + 1,
+            oldPrefix + "%"
+        );
+
+        res.json({
+            message: "Folder renamed",
+            oldPath: relativePath,
+            newPath: newRelativePath
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === "ENOENT") {
+            return res.status(404).json({
+                error: "Folder not found"
+            });
+        }
+
+        res.status(500).json({
+            error: "Failed to rename folder"
+        });
+    }
+});
+
 app.post("/api/upload", (req, res) => {
     upload.array("files")(req, res, async (error) => {
         if (error) {

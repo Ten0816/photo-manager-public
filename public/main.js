@@ -90,6 +90,59 @@ async function loadFolders() {
                 openFolder(folder.path);
             });
 
+            const renameButton =
+                document.createElement("button");
+
+            renameButton.textContent = "名前変更";
+
+            renameButton.addEventListener("click", async (event) => {
+                event.stopPropagation();
+
+                const newName = prompt(
+                    "新しいフォルダ名を入力してください。",
+                    folder.name
+                );
+
+                if (!newName || newName === folder.name) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(
+                        "/api/folders?path=" +
+                        encodeURIComponent(folder.path),
+                        {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                name: newName
+                            })
+                        }
+                    );
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            data.error ||
+                            "Failed to rename folder"
+                        );
+                    }
+
+                    await loadFolders();
+
+                } catch (error) {
+                    console.error(error);
+
+                    alert(
+                        "フォルダ名の変更に失敗しました。\n" +
+                        error.message
+                    );
+                }
+            });
+
             const deleteButton =
                 document.createElement("button");
 
@@ -138,6 +191,7 @@ async function loadFolders() {
             });
 
             folderElement.appendChild(openButton);
+            folderElement.appendChild(renameButton);
             folderElement.appendChild(deleteButton);
 
             folderList.appendChild(folderElement);
@@ -210,11 +264,11 @@ function updateBreadcrumb() {
         const targetPath = path;
 
         button.addEventListener("click", () => {
-        currentFolder = targetPath;
+            currentFolder = targetPath;
 
-        loadFolders();
-        refreshMedia();
-});
+            loadFolders();
+            refreshMedia();
+        });
 
         breadcrumb.appendChild(button);
     }
@@ -327,62 +381,119 @@ function createMediaItem(media) {
 
     const name = document.createElement("div");
 
-name.className = "media-name";
-name.textContent = media.path;
+    name.className = "media-name";
+    name.textContent = media.path;
 
-const deleteButton =
-    document.createElement("button");
+    const renameButton =
+        document.createElement("button");
 
-deleteButton.textContent = "削除";
+    renameButton.textContent = "名前変更";
 
-deleteButton.addEventListener("click", async (event) => {
-    event.stopPropagation();
+    renameButton.addEventListener("click", async (event) => {
+        event.stopPropagation();
 
-    const confirmed = confirm(
-        "「" +
-        media.path +
-        "」を削除しますか？"
-    );
+        const currentName =
+            media.path.split("/").pop();
 
-    if (!confirmed) {
-        return;
-    }
-
-    try {
-        const response = await fetch(
-            "/api/media?path=" +
-            encodeURIComponent(media.path),
-            {
-                method: "DELETE"
-            }
+        const newName = prompt(
+            "新しいファイル名を入力してください。",
+            currentName
         );
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                data.error ||
-                "Failed to delete media"
-            );
+        if (!newName || newName === currentName) {
+            return;
         }
 
-        item.remove();
+        try {
+            const response = await fetch(
+                "/api/media?path=" +
+                encodeURIComponent(media.path),
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: newName
+                    })
+                }
+            );
 
-    } catch (error) {
-        console.error(error);
+            const data = await response.json();
 
-        alert(
-            "ファイルの削除に失敗しました。\n" +
-            error.message
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Failed to rename media"
+                );
+            }
+
+            refreshMedia();
+
+        } catch (error) {
+            console.error(error);
+
+            alert(
+                "ファイル名の変更に失敗しました。\n" +
+                error.message
+            );
+        }
+    });
+
+    const deleteButton =
+        document.createElement("button");
+
+    deleteButton.textContent = "削除";
+
+    deleteButton.addEventListener("click", async (event) => {
+        event.stopPropagation();
+
+        const confirmed = confirm(
+            "「" +
+            media.path +
+            "」を削除しますか？"
         );
-    }
-});
 
-item.appendChild(preview);
-item.appendChild(name);
-item.appendChild(deleteButton);
+        if (!confirmed) {
+            return;
+        }
 
-mediaList.appendChild(item);
+        try {
+            const response = await fetch(
+                "/api/media?path=" +
+                encodeURIComponent(media.path),
+                {
+                    method: "DELETE"
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Failed to delete media"
+                );
+            }
+
+            item.remove();
+
+        } catch (error) {
+            console.error(error);
+
+            alert(
+                "ファイルの削除に失敗しました。\n" +
+                error.message
+            );
+        }
+    });
+
+    item.appendChild(preview);
+    item.appendChild(name);
+    item.appendChild(renameButton);
+    item.appendChild(deleteButton);
+
+    mediaList.appendChild(item);
 }
 
 function openImage(url) {
