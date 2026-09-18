@@ -1,5 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
+const exifr = require("exifr");
 
 const db = require("./database");
 
@@ -35,12 +36,65 @@ async function scanDirectory(directory) {
 
         const stat = await fs.stat(fullPath);
         const relativePath = path.relative(MEDIA_DIR, fullPath);
+        const type = getMediaType(entry.name);
+
+        let takenAt = null;
+        let latitude = null;
+        let longitude = null;
+
+        // 画像の場合のみEXIFを取得
+        if (type === "image") {
+            try {
+                const exif = await exifr.parse(fullPath);
+
+                if (exif) {
+                    const date =
+                        exif.DateTimeOriginal ??
+                        exif.CreateDate ??
+                        null;
+
+                    if (date instanceof Date) {
+                        takenAt = date.toISOString();
+                    } else if (date !== null) {
+                        takenAt = String(date);
+                    }
+
+                    latitude = exif.latitude ?? null;
+                    longitude = exif.longitude ?? null;
+                }
+
+                if (exif) {
+                    const date =
+                        exif.DateTimeOriginal ??
+                        exif.CreateDate ??
+                        null;
+
+                    if (date instanceof Date) {
+                        takenAt = date.toISOString();
+                    } else if (date !== null) {
+                        takenAt = String(date);
+                    }
+
+                    latitude = exif.latitude ?? null;
+                    longitude = exif.longitude ?? null;
+                }
+            } catch (error) {
+                console.warn(
+                    "EXIFの読み込みに失敗しました: " +
+                    relativePath
+                );
+                console.warn(error.message);
+            }
+        }
 
         files.push({
             path: relativePath,
-            type: getMediaType(entry.name),
+            type: type,
             fileSize: stat.size,
-            modifiedAt: Math.floor(stat.mtimeMs)
+            modifiedAt: Math.floor(stat.mtimeMs),
+            takenAt: takenAt,
+            latitude: latitude,
+            longitude: longitude
         });
     }
 
@@ -98,7 +152,10 @@ async function main() {
                 path,
                 type,
                 file_size,
-                modified_at
+                modified_at,
+                taken_at,
+                latitude,
+                longitude
             FROM media
         `).all();
 
@@ -113,13 +170,19 @@ async function main() {
                 path,
                 type,
                 file_size,
-                modified_at
+                modified_at,
+                taken_at,
+                latitude,
+                longitude
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
                 type = excluded.type,
                 file_size = excluded.file_size,
-                modified_at = excluded.modified_at
+                modified_at = excluded.modified_at,
+                taken_at = excluded.taken_at,
+                latitude = excluded.latitude,
+                longitude = excluded.longitude
         `);
 
         for (const file of files) {
@@ -130,23 +193,33 @@ async function main() {
                     file.path,
                     file.type,
                     file.fileSize,
-                    file.modifiedAt
+                    file.modifiedAt,
+                    file.takenAt,
+                    file.latitude,
+                    file.longitude
                 );
 
                 inserted++;
+                existingMap.delete(file.path);
                 continue;
             }
 
             if (
                 existing.type !== file.type ||
                 existing.file_size !== file.fileSize ||
-                existing.modified_at !== file.modifiedAt
+                existing.modified_at !== file.modifiedAt ||
+                existing.taken_at !== file.takenAt ||
+                existing.latitude !== file.latitude ||
+                existing.longitude !== file.longitude
             ) {
                 upsert.run(
                     file.path,
                     file.type,
                     file.fileSize,
-                    file.modifiedAt
+                    file.modifiedAt,
+                    file.takenAt,
+                    file.latitude,
+                    file.longitude
                 );
 
                 updated++;
