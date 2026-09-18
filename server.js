@@ -16,6 +16,21 @@ const PORT = 3000;
 
 const MEDIA_DIR = "/mnt/photo-hdd/Memory";
 const THUMBNAIL_DIR = "/mnt/photo-hdd/Memory/thumbnails";
+
+function getSafeMediaPath(relativePath) {
+    const mediaRoot = path.resolve(MEDIA_DIR);
+    const targetPath = path.resolve(MEDIA_DIR, relativePath || "");
+
+    if (
+        targetPath !== mediaRoot &&
+        !targetPath.startsWith(mediaRoot + path.sep)
+    ) {
+        throw new Error("Invalid path");
+    }
+
+    return targetPath;
+}
+
 const storage = multer.diskStorage({
     destination: (req, file, callback) => {
         callback(null, MEDIA_DIR);
@@ -31,10 +46,97 @@ const upload = multer({
 });
 
 app.use(express.static("public"));
+app.use(express.json());
 app.use("/media", express.static(MEDIA_DIR));
 
 app.get("/", (req, res) => {
     res.send("Photo Manager Server is running!");
+});
+
+app.get("/api/folders", async (req, res) => {
+    try {
+        const relativePath = req.query.path || "";
+        const directory = getSafeMediaPath(relativePath);
+
+        const entries = await fs.readdir(directory, {
+            withFileTypes: true
+        });
+
+        const folders = [];
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) {
+                continue;
+            }
+
+            if (entry.name === "thumbnails") {
+                continue;
+            }
+
+            folders.push({
+                name: entry.name,
+                path: path.join(relativePath, entry.name)
+            });
+        }
+
+        folders.sort((a, b) => {
+            return a.name.localeCompare(b.name, undefined, {
+                numeric: true
+            });
+        });
+
+        res.json({
+            path: relativePath,
+            folders: folders
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: "Failed to read folders"
+        });
+    }
+});
+
+app.post("/api/folders", async (req, res) => {
+    try {
+        const relativePath = req.query.path || "";
+        const folderName = req.body.name;
+
+        if (!folderName) {
+            return res.status(400).json({
+                error: "Folder name is required"
+            });
+        }
+
+        if (
+            folderName.includes("/") ||
+            folderName.includes("\\") ||
+            folderName === "." ||
+            folderName === ".."
+        ) {
+            return res.status(400).json({
+                error: "Invalid folder name"
+            });
+        }
+
+        const parentDirectory = getSafeMediaPath(relativePath);
+        const folderPath = path.join(parentDirectory, folderName);
+
+        await fs.mkdir(folderPath);
+
+        res.json({
+            message: "Folder created",
+            name: folderName,
+            path: path.join(relativePath, folderName)
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: "Failed to create folder"
+        });
+    }
 });
 
 app.post("/api/upload", upload.array("files"), async (req, res) => {
@@ -45,13 +147,43 @@ app.post("/api/upload", upload.array("files"), async (req, res) => {
             });
         }
 
+        const relativePath = req.query.path || "";
+        const directory = getSafeMediaPath(relativePath);
+
+        await fs.mkdir(directory, {
+            recursive: true
+        });
+
+        const uploadedFiles = [];
+
+        for (const file of req.files) {
+            const temporaryPath = file.path;
+            const destinationPath = path.join(
+                directory,
+                file.originalname
+            );
+
+            await fs.rename(
+                temporaryPath,
+                destinationPath
+            );
+
+            uploadedFiles.push(
+                path.join(relativePath, file.originalname)
+            );
+        }
+
         console.log(
-            req.files.length + " 件のファイルをアップロードしました。"
+            uploadedFiles.length +
+            " 件のファイルを " +
+            relativePath +
+            " にアップロードしました。"
         );
 
         res.json({
             message: "Upload completed",
-            count: req.files.length
+            count: uploadedFiles.length,
+            files: uploadedFiles
         });
     } catch (error) {
         console.error(error);
