@@ -1,5 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
+const multer = require("multer");
 const sharp = require("sharp");
 const fs = require("fs/promises");
 const path = require("path");
@@ -15,12 +16,50 @@ const PORT = 3000;
 
 const MEDIA_DIR = "/mnt/photo-hdd/Memory";
 const THUMBNAIL_DIR = "/mnt/photo-hdd/Memory/thumbnails";
+const storage = multer.diskStorage({
+    destination: (req, file, callback) => {
+        callback(null, MEDIA_DIR);
+    },
+
+    filename: (req, file, callback) => {
+        callback(null, file.originalname);
+    }
+});
+
+const upload = multer({
+    storage: storage
+});
 
 app.use(express.static("public"));
 app.use("/media", express.static(MEDIA_DIR));
 
 app.get("/", (req, res) => {
     res.send("Photo Manager Server is running!");
+});
+
+app.post("/api/upload", upload.array("files"), async (req, res) => {
+    try {
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({
+                error: "No files uploaded"
+            });
+        }
+
+        console.log(
+            req.files.length + " 件のファイルをアップロードしました。"
+        );
+
+        res.json({
+            message: "Upload completed",
+            count: req.files.length
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: "Upload failed"
+        });
+    }
 });
 
 app.get("/api/media", (req, res) => {
