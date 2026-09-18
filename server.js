@@ -23,12 +23,11 @@ const { promisify } = require("util");
 
 const app = express();
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
-const MEDIA_DIR = "/mnt/photo-hdd/Memory";
+const MEDIA_DIR = process.env.MEDIA_DIR || "/data/Memory";
 
-const THUMBNAIL_DIR =
-    "/mnt/photo-hdd/Memory/thumbnails";
+const THUMBNAIL_DIR = path.join(MEDIA_DIR, "thumbnails");
 
 const UPLOAD_TEMP_DIR = path.join(
     os.tmpdir(),
@@ -321,9 +320,7 @@ const upload = multer({
 // Express設定
 // ============================================================
 
-app.use(
-    express.static("public")
-);
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use(
     express.json()
