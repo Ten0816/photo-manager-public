@@ -12,6 +12,10 @@ fs.mkdirSync(path.dirname(dbPath), {
 
 const db = new Database(dbPath);
 
+// SQLiteのロックが発生した場合、5秒間待ってからエラーにする
+db.pragma("busy_timeout = 5000");
+
+// WALモードを使用する
 db.pragma("journal_mode = WAL");
 
 db.exec(`
@@ -21,9 +25,7 @@ db.exec(`
         type TEXT NOT NULL,
         file_size INTEGER NOT NULL,
         modified_at INTEGER NOT NULL,
-        taken_at TEXT,
-        latitude REAL,
-        longitude REAL
+        taken_at TEXT
     )
 `);
 
@@ -33,14 +35,6 @@ const columnNames = new Set(columns.map(column => column.name));
 
 if (!columnNames.has("taken_at")) {
     db.exec("ALTER TABLE media ADD COLUMN taken_at TEXT");
-}
-
-if (!columnNames.has("latitude")) {
-    db.exec("ALTER TABLE media ADD COLUMN latitude REAL");
-}
-
-if (!columnNames.has("longitude")) {
-    db.exec("ALTER TABLE media ADD COLUMN longitude REAL");
 }
 
 module.exports = db;

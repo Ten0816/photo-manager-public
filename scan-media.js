@@ -39,8 +39,6 @@ async function scanDirectory(directory) {
         const type = getMediaType(entry.name);
 
         let takenAt = null;
-        let latitude = null;
-        let longitude = null;
 
         // 画像の場合のみEXIFを取得
         if (type === "image") {
@@ -53,14 +51,12 @@ async function scanDirectory(directory) {
                         exif.CreateDate ??
                         null;
 
-                    if (date instanceof Date) {
-                        takenAt = date.toISOString();
-                    } else if (date !== null) {
-                        takenAt = String(date);
-                    }
+                    const offset =
+                        exif.OffsetTimeOriginal ??
+                        exif.OffsetTimeDigitized ??
+                        null;
 
-                    latitude = exif.latitude ?? null;
-                    longitude = exif.longitude ?? null;
+                    takenAt = parseExifDate(date, offset);
                 }
             } catch (error) {
                 console.warn(
@@ -76,13 +72,145 @@ async function scanDirectory(directory) {
             type: type,
             fileSize: stat.size,
             modifiedAt: Math.floor(stat.mtimeMs),
-            takenAt: takenAt,
-            latitude: latitude,
-            longitude: longitude
+            takenAt: takenAt
         });
     }
 
     return files;
+}
+
+/**
+ * EXIFの撮影日時をISO 8601形式へ変換する。
+ *
+ * 例:
+ * DateTimeOriginal  = 2026:09:19 17:34:55
+ * OffsetTimeOriginal = +09:00
+ *
+ * ↓
+ *
+ * 2026-09-19T08:34:55.000Z
+ *
+ * これを表示側でJSTへ変換すると
+ * 2026-09-19 17:34:55 になる。
+ */
+function parseExifDate(date, offset) {
+    if (date === null || date === undefined) {
+        return null;
+    }
+
+    /*
+     * exifrはDateTimeOriginalをDateとして返す場合がある。
+     *
+     * ただし今回のファイルでは、
+     *
+     * EXIF:
+     *   DateTimeOriginal   = 2026:09:19 17:34:55
+     *   OffsetTimeOriginal = +09:00
+     *
+     * に対して、
+     *
+     * exifr:
+     *   Date = 2026-09-19T17:34:55.000Z
+     *
+     * と返している。
+     *
+     * これは「17:34:55 JST」を「17:34:55 UTC」として
+     * 扱っている状態なので、Offset分を引いてUTCに変換する。
+     */
+    if (date instanceof Date) {
+        if (Number.isNaN(date.getTime())) {
+            return null;
+        }
+
+        if (offset) {
+            const match = String(offset).match(
+                /^([+-])(\d{2}):?(\d{2})$/
+            );
+
+            if (match) {
+                const sign = match[1] === "+" ? 1 : -1;
+                const hours = Number(match[2]);
+                const minutes = Number(match[3]);
+
+                const offsetMinutes =
+                    sign * (hours * 60 + minutes);
+
+                const correctedTime =
+                    date.getTime() -
+                    offsetMinutes * 60 * 1000;
+
+                return new Date(correctedTime).toISOString();
+            }
+        }
+
+        return date.toISOString();
+    }
+
+    if (typeof date !== "string") {
+        return null;
+    }
+
+    /*
+     * EXIFの日時形式:
+     *
+     * 2026:09:19 17:34:55
+     */
+    const match = date.match(
+        /^(\d{4}):(\d{2}):(\d{2})[ ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    const [
+        ,
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+        fraction
+    ] = match;
+
+    const milliseconds = fraction
+        ? Number(("0." + fraction) * 1000)
+        : 0;
+
+    const localTime = Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+        milliseconds
+    );
+
+    let offsetMinutes = 0;
+
+    if (offset) {
+        const offsetMatch = String(offset).match(
+            /^([+-])(\d{2}):?(\d{2})$/
+        );
+
+        if (offsetMatch) {
+            const sign =
+                offsetMatch[1] === "+" ? 1 : -1;
+
+            offsetMinutes =
+                sign *
+                (
+                    Number(offsetMatch[2]) * 60 +
+                    Number(offsetMatch[3])
+                );
+        }
+    }
+
+    return new Date(
+        localTime - offsetMinutes * 60 * 1000
+    ).toISOString();
 }
 
 function isMediaFile(fileName) {
@@ -137,9 +265,7 @@ async function main() {
                 type,
                 file_size,
                 modified_at,
-                taken_at,
-                latitude,
-                longitude
+                taken_at
             FROM media
         `).all();
 
@@ -155,18 +281,14 @@ async function main() {
                 type,
                 file_size,
                 modified_at,
-                taken_at,
-                latitude,
-                longitude
+                taken_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
                 type = excluded.type,
                 file_size = excluded.file_size,
                 modified_at = excluded.modified_at,
-                taken_at = excluded.taken_at,
-                latitude = excluded.latitude,
-                longitude = excluded.longitude
+                taken_at = excluded.taken_at
         `);
 
         for (const file of files) {
@@ -178,9 +300,7 @@ async function main() {
                     file.type,
                     file.fileSize,
                     file.modifiedAt,
-                    file.takenAt,
-                    file.latitude,
-                    file.longitude
+                    file.takenAt
                 );
 
                 inserted++;
@@ -192,18 +312,14 @@ async function main() {
                 existing.type !== file.type ||
                 existing.file_size !== file.fileSize ||
                 existing.modified_at !== file.modifiedAt ||
-                existing.taken_at !== file.takenAt ||
-                existing.latitude !== file.latitude ||
-                existing.longitude !== file.longitude
+                existing.taken_at !== file.takenAt
             ) {
                 upsert.run(
                     file.path,
                     file.type,
                     file.fileSize,
                     file.modifiedAt,
-                    file.takenAt,
-                    file.latitude,
-                    file.longitude
+                    file.takenAt
                 );
 
                 updated++;

@@ -721,45 +721,6 @@ app.put(
 // ============================================================
 
 /**
- * GPS情報を持つメディア一覧取得
- *
- * GET /api/media/locations
- */
-app.get(
-    "/api/media/locations",
-    (req, res) => {
-        try {
-            const media =
-                db.prepare(`
-                    SELECT
-                        id,
-                        path,
-                        type,
-                        taken_at,
-                        latitude,
-                        longitude
-                    FROM media
-                    WHERE latitude IS NOT NULL
-                    AND longitude IS NOT NULL
-                    ORDER BY taken_at
-                `).all();
-
-            res.json({
-                media: media
-            });
-
-        } catch (error) {
-            console.error(error);
-
-            res.status(500).json({
-                error:
-                    "Failed to fetch media locations"
-            });
-        }
-    }
-);
-
-/**
  * メディア一覧取得
  *
  * GET /api/media?path=...&page=...&limit=...
@@ -814,9 +775,7 @@ app.get(
                             type,
                             file_size,
                             modified_at,
-                            taken_at,
-                            latitude,
-                            longitude
+                            taken_at
                         FROM media
                         WHERE instr(path, '/') = 0
                         ORDER BY path
@@ -850,9 +809,7 @@ app.get(
                             type,
                             file_size,
                             modified_at,
-                            taken_at,
-                            latitude,
-                            longitude
+                            taken_at
                         FROM media
                         WHERE path LIKE ?
                         AND path NOT LIKE ?

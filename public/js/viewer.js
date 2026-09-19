@@ -269,24 +269,12 @@ export function renderViewer() {
     );
 
 
-  const gps =
-    media.latitude !== null &&
-      media.longitude !== null
-      ? `${media.latitude}, ${media.longitude}`
-      : "記録されていません";
-
-
   exifInfo.innerHTML = `
-        <div>
-            <strong>撮影日時</strong>
-            ${takenAt}
-        </div>
-
-        <div>
-            <strong>GPS</strong>
-            ${gps}
-        </div>
-    `;
+      <div>
+          <strong>撮影日時</strong>
+          ${takenAt}
+      </div>
+  `;
 
 
   modalContent.appendChild(
