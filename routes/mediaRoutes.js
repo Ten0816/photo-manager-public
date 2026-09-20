@@ -5,12 +5,17 @@ const path = require("path");
 const db = require("../database");
 
 const {
-    getSafeMediaPath
+    MEDIA_DIR,
+    TRASH_DIR,
+    getSafeMediaPath,
+    getThumbnailPath,
+    getTrashPath
 } = require("../utils/pathUtils");
 
 const {
     validateMediaName,
-    getExtension
+    getExtension,
+    getUniqueFilePath
 } = require("../services/mediaService");
 
 const router = express.Router();
@@ -23,10 +28,14 @@ const router = express.Router();
 router.get("/", async (req, res) => {
     try {
         const page =
-            parseInt(req.query.page) || 1;
+            parseInt(
+                req.query.page
+            ) || 1;
 
         const limit =
-            parseInt(req.query.limit) || 100;
+            parseInt(
+                req.query.limit
+            ) || 100;
 
         const relativePath =
             req.query.path || "";
@@ -72,7 +81,8 @@ router.get("/", async (req, res) => {
 
             total =
                 db.prepare(`
-                    SELECT COUNT(*) AS count
+                    SELECT
+                        COUNT(*) AS count
                     FROM media
                     WHERE instr(path, '/') = 0
                 `).get().count;
@@ -107,7 +117,8 @@ router.get("/", async (req, res) => {
 
             total =
                 db.prepare(`
-                    SELECT COUNT(*) AS count
+                    SELECT
+                        COUNT(*) AS count
                     FROM media
                     WHERE path LIKE ?
                     AND path NOT LIKE ?
@@ -118,11 +129,10 @@ router.get("/", async (req, res) => {
         }
 
         res.json({
-            media: media,
-            page: page,
-            limit: limit,
-            total: total,
-
+            media,
+            page,
+            limit,
+            total,
             hasMore:
                 offset + media.length <
                 total
@@ -138,30 +148,69 @@ router.get("/", async (req, res) => {
     }
 });
 
+
 /**
  * メディア削除
  *
  * DELETE /api/media?path=...
+ *
+ * 完全削除ではなくゴミ箱へ移動する
  */
 router.delete("/", async (req, res) => {
+    const relativePath =
+        req.query.path;
+
+    if (!relativePath) {
+        return res.status(400).json({
+            error:
+                "Media path is required"
+        });
+    }
+
+    let filePath;
+    let trashPath;
+
     try {
-        const relativePath =
-            req.query.path;
-
-        if (!relativePath) {
-            return res.status(400).json({
-                error:
-                    "Media path is required"
-            });
-        }
-
-        const filePath =
+        /*
+         * 元ファイル
+         */
+        filePath =
             getSafeMediaPath(
                 relativePath
             );
 
+        /*
+         * DBからメディア情報取得
+         */
+        const media =
+            db.prepare(`
+                SELECT
+                    id,
+                    path,
+                    type,
+                    file_size,
+                    modified_at,
+                    taken_at
+                FROM media
+                WHERE path = ?
+            `).get(
+                relativePath
+            );
+
+        if (!media) {
+            return res.status(404).json({
+                error:
+                    "Media not found"
+            });
+        }
+
+        /*
+         * ファイル確認
+         */
         const stat =
-            await fs.stat(filePath);
+            await fs.stat(
+                filePath
+            );
 
         if (!stat.isFile()) {
             return res.status(400).json({
@@ -170,18 +219,188 @@ router.delete("/", async (req, res) => {
             });
         }
 
-        await fs.unlink(filePath);
+        /*
+         * ゴミ箱の保存先
+         */
+        trashPath =
+            getTrashPath(
+                relativePath
+            );
 
-        db.prepare(`
-            DELETE FROM media
-            WHERE path = ?
-        `).run(
-            relativePath
+        /*
+         * ゴミ箱側のディレクトリ作成
+         */
+        await fs.mkdir(
+            path.dirname(
+                trashPath
+            ),
+            {
+                recursive: true
+            }
         );
+
+        /*
+         * 同じパスがすでにゴミ箱に存在する場合、
+         * 自動的に名前を変更する。
+         *
+         * 例:
+         * test.jpg
+         * test (1).jpg
+         * test (2).jpg
+         */
+        try {
+            await fs.access(
+                trashPath
+            );
+
+            trashPath =
+                await getUniqueFilePath(
+                    path.dirname(
+                        trashPath
+                    ),
+                    path.basename(
+                        trashPath
+                    )
+                );
+
+        } catch (error) {
+            if (
+                error.code !==
+                "ENOENT"
+            ) {
+                throw error;
+            }
+        }
+
+        /*
+         * ファイルをゴミ箱へ移動
+         */
+        await fs.rename(
+            filePath,
+            trashPath
+        );
+
+        /*
+         * 元の相対パスに対する
+         * ゴミ箱内の相対パス
+         */
+        const trashRelativePath =
+            path.relative(
+                TRASH_DIR,
+                trashPath
+            );
+
+        try {
+            /*
+             * DB処理
+             *
+             * INSERTとDELETEを
+             * SQLiteトランザクションでまとめる
+             */
+            const transaction =
+                db.transaction(() => {
+
+                    db.prepare(`
+                        INSERT INTO trash (
+                            original_path,
+                            trash_path,
+                            type,
+                            file_size,
+                            modified_at,
+                            taken_at,
+                            deleted_at
+                        )
+                        VALUES (
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?
+                        )
+                    `).run(
+                        relativePath,
+                        trashRelativePath,
+                        media.type,
+                        media.file_size,
+                        media.modified_at,
+                        media.taken_at,
+                        Date.now()
+                    );
+
+                    db.prepare(`
+                        DELETE FROM media
+                        WHERE path = ?
+                    `).run(
+                        relativePath
+                    );
+                });
+
+            transaction();
+
+        } catch (error) {
+            /*
+             * DB処理に失敗した場合、
+             * ファイルを元の場所へ戻す
+             */
+            try {
+                await fs.rename(
+                    trashPath,
+                    filePath
+                );
+            } catch (rollbackError) {
+                console.error(
+                    "Failed to rollback file move:",
+                    rollbackError
+                );
+            }
+
+            throw error;
+        }
+
+        /*
+         * サムネイル削除
+         *
+         * 現在のサムネイル仕様では
+         * 元ファイルの拡張子に関係なく
+         * .jpgになっている。
+         */
+        const thumbnailRelativePath =
+            path.join(
+                path.dirname(
+                    relativePath
+                ),
+                path.parse(
+                    relativePath
+                ).name + ".jpg"
+            );
+
+        const thumbnailPath =
+            getThumbnailPath(
+                thumbnailRelativePath
+            );
+
+        try {
+            await fs.unlink(
+                thumbnailPath
+            );
+
+        } catch (error) {
+            if (
+                error.code !==
+                "ENOENT"
+            ) {
+                console.error(
+                    "Failed to delete thumbnail:",
+                    error
+                );
+            }
+        }
 
         res.json({
             message:
-                "Media deleted",
+                "Media moved to trash",
 
             path:
                 relativePath
@@ -190,7 +409,10 @@ router.delete("/", async (req, res) => {
     } catch (error) {
         console.error(error);
 
-        if (error.code === "ENOENT") {
+        if (
+            error.code ===
+            "ENOENT"
+        ) {
             return res.status(404).json({
                 error:
                     "Media not found"
@@ -199,10 +421,11 @@ router.delete("/", async (req, res) => {
 
         res.status(500).json({
             error:
-                "Failed to delete media"
+                "Failed to move media to trash"
         });
     }
 });
+
 
 /**
  * メディア名前変更
@@ -224,20 +447,32 @@ router.put("/", async (req, res) => {
         const inputName =
             req.body.name;
 
-        if (!validateMediaName(inputName)) {
+        if (
+            !validateMediaName(
+                inputName
+            )
+        ) {
             return res.status(400).json({
                 error:
                     "Invalid file name"
             });
         }
 
-        // 元ファイルの拡張子
+        /*
+         * 元ファイルの拡張子
+         */
         const oldExtension =
-            getExtension(relativePath);
+            getExtension(
+                relativePath
+            );
 
-        // 入力された拡張子を除去
+        /*
+         * 入力された拡張子を除去
+         */
         const inputExtension =
-            path.extname(inputName);
+            path.extname(
+                inputName
+            );
 
         const newBaseName =
             path.basename(
@@ -245,7 +480,9 @@ router.put("/", async (req, res) => {
                 inputExtension
             );
 
-        // 元の拡張子を使用
+        /*
+         * 元の拡張子を使用
+         */
         const newName =
             newBaseName +
             oldExtension;
@@ -256,7 +493,9 @@ router.put("/", async (req, res) => {
             );
 
         const directory =
-            path.dirname(oldPath);
+            path.dirname(
+                oldPath
+            );
 
         const newPath =
             path.join(
@@ -264,9 +503,13 @@ router.put("/", async (req, res) => {
                 newName
             );
 
-        // 新しい相対パス
+        /*
+         * 新しい相対パス
+         */
         const relativeDirectory =
-            path.dirname(relativePath);
+            path.dirname(
+                relativePath
+            );
 
         const newRelativePath =
             path.join(
@@ -280,9 +523,13 @@ router.put("/", async (req, res) => {
             newRelativePath
         );
 
-        // 同名ファイル確認
+        /*
+         * 同名ファイル確認
+         */
         try {
-            await fs.access(newPath);
+            await fs.access(
+                newPath
+            );
 
             return res.status(409).json({
                 error:
@@ -290,7 +537,10 @@ router.put("/", async (req, res) => {
             });
 
         } catch (error) {
-            if (error.code !== "ENOENT") {
+            if (
+                error.code !==
+                "ENOENT"
+            ) {
                 throw error;
             }
         }
@@ -300,7 +550,9 @@ router.put("/", async (req, res) => {
             newPath
         );
 
-        // SQLite更新
+        /*
+         * SQLite更新
+         */
         db.prepare(`
             UPDATE media
             SET path = ?
@@ -324,7 +576,10 @@ router.put("/", async (req, res) => {
     } catch (error) {
         console.error(error);
 
-        if (error.code === "ENOENT") {
+        if (
+            error.code ===
+            "ENOENT"
+        ) {
             return res.status(404).json({
                 error:
                     "Media not found"

@@ -20,6 +20,9 @@ const thumbnailRoutes =
 const storageRoutes =
     require("./routes/storageRoutes");
 
+const trashRoutes =
+    require("./routes/trashRoutes");
+
 
 const app = express();
 
@@ -79,6 +82,11 @@ app.use(
 app.use(
     "/api/storage",
     storageRoutes
+);
+
+app.use(
+    "/api/trash",
+    trashRoutes
 );
 
 
