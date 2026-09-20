@@ -20,25 +20,20 @@ import {
     loadStorage
 } from "./storage.js";
 
+import {
+    initTrash
+} from "./trash.js";
 
-// ============================================================
-// 初期化
-// ============================================================
 
 async function init() {
-
     initFolderEvents();
-
     initMediaEvents();
-
     initViewer();
-
     initUpload();
+    initTrash();
 
     await loadFolders();
-
     await loadMedia();
-
     await loadStorage();
 }
 

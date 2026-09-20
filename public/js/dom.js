@@ -49,3 +49,38 @@ export const storageBarFill =
     document.getElementById(
         "storage-bar-fill"
     );
+
+
+// ==============================
+// ゴミ箱
+// ==============================
+
+export const normalView =
+    document.getElementById(
+        "normal-view"
+    );
+
+export const trashView =
+    document.getElementById(
+        "trash-view"
+    );
+
+export const trashButton =
+    document.getElementById(
+        "trash-button"
+    );
+
+export const backFromTrashButton =
+    document.getElementById(
+        "back-from-trash-button"
+    );
+
+export const trashList =
+    document.getElementById(
+        "trash-list"
+    );
+
+export const emptyTrashButton =
+    document.getElementById(
+        "empty-trash-button"
+    );

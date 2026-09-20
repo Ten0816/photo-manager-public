@@ -374,3 +374,234 @@ header h1 {
     background-color: #4caf50;
     transition: width 0.3s ease;
 }
+
+#trash-view {
+    padding: 20px;
+}
+
+#trash-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+#trash-header h2 {
+    margin: 0;
+    flex: 1;
+}
+
+#trash-list {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.trash-item {
+    cursor: default;
+}
+
+.trash-item:hover {
+    transform: scale(1.02);
+}
+
+.trash-item button {
+    margin: 0 6px 10px;
+}
+
+.trash-deleted-at {
+    padding: 0 10px 8px;
+    color: #666;
+    font-size: 13px;
+}
+
+
+/*
+ * 「ゴミ箱を空にする」ボタン
+ */
+#empty-trash-button {
+    background-color: #d32f2f;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#empty-trash-button:hover {
+    background-color: #b71c1c;
+}
+
+#empty-trash-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+
+/*
+ * 復元ボタン
+ */
+.trash-item button:first-of-type {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.trash-item button:first-of-type:hover {
+    opacity: 0.85;
+}
+
+
+/*
+ * 完全削除ボタン
+ */
+.trash-item button:last-of-type {
+    background-color: #d32f2f;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.trash-item button:last-of-type:hover {
+    opacity: 0.85;
+}
+
+
+/*
+ * ゴミ箱ボタン
+ */
+#trash-button {
+    margin-top: 10px;
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: white;
+    cursor: pointer;
+}
+
+#trash-button:hover {
+    background-color: #f0f0f0;
+}
+
+
+/*
+ * 戻るボタン
+ */
+#back-from-trash-button {
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: white;
+    cursor: pointer;
+}
+
+#back-from-trash-button:hover {
+    background-color: #f0f0f0;
+}
+
+
+/*
+ * タブレット
+ */
+@media screen
+    and (min-width: 600px)
+    and (max-width: 899px) {
+
+    #trash-view {
+        padding: 14px;
+    }
+
+    #trash-list {
+        grid-template-columns:
+            repeat(4, 1fr);
+        gap: 6px;
+    }
+
+    .trash-item {
+        border-radius: 4px;
+    }
+
+    .trash-deleted-at {
+        padding: 0 7px 6px;
+        font-size: 12px;
+    }
+
+    .trash-item button {
+        margin: 0 4px 8px;
+        padding: 7px 9px;
+        font-size: 12px;
+    }
+}
+
+
+/*
+ * スマートフォン
+ */
+@media screen and (max-width: 599px) {
+
+    #trash-view {
+        padding: 10px;
+    }
+
+    #trash-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    #trash-header h2 {
+        font-size: 20px;
+        order: 2;
+        width: 100%;
+        flex: none;
+    }
+
+    #back-from-trash-button {
+        order: 1;
+    }
+
+    #empty-trash-button {
+        order: 3;
+        margin-left: auto;
+    }
+
+    #trash-list {
+        grid-template-columns:
+            repeat(3, 1fr);
+        gap: 2px;
+    }
+
+    .trash-item {
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .trash-item:hover {
+        transform: none;
+    }
+
+    .trash-deleted-at {
+        padding: 4px;
+        font-size: 10px;
+
+        /*
+         * スマホでは長い日時を
+         * 省略する
+         */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .trash-item button {
+        width: calc(100% - 8px);
+        margin: 2px 4px;
+        padding: 7px 4px;
+        font-size: 12px;
+    }
+}

@@ -81,12 +81,11 @@ export async function loadMedia() {
 /**
  * メディア一覧を最初から読み直す
  */
-export function refreshMedia() {
+export async function refreshMedia() {
     mediaList.innerHTML = "";
-
     resetMediaState();
 
-    loadMedia();
+    await loadMedia();
 }
 
 

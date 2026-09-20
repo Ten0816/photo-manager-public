@@ -11,6 +11,23 @@ const {
 const router = express.Router();
 
 /**
+ * アプリ内部で使用する特殊フォルダ
+ *
+ * ユーザーからは通常のフォルダとして扱わない。
+ */
+const INTERNAL_DIRECTORIES = new Set([
+    ".thumbnails",
+    ".trash"
+]);
+
+/**
+ * 内部フォルダかどうか
+ */
+function isInternalDirectory(name) {
+    return INTERNAL_DIRECTORIES.has(name);
+}
+
+/**
  * フォルダ一覧取得
  *
  * GET /api/folders?path=...
@@ -40,9 +57,8 @@ router.get("/", async (req, res) => {
                 continue;
             }
 
-            if (
-                entry.name === ".thumbnails"
-            ) {
+            // アプリ内部フォルダは表示しない
+            if (isInternalDirectory(entry.name)) {
                 continue;
             }
 
@@ -73,6 +89,13 @@ router.get("/", async (req, res) => {
 
     } catch (error) {
         console.error(error);
+
+        if (error.code === "ENOENT") {
+            return res.status(404).json({
+                error:
+                    "Folder not found"
+            });
+        }
 
         res.status(500).json({
             error:
@@ -113,6 +136,14 @@ router.post("/", async (req, res) => {
             });
         }
 
+        // 内部フォルダ名の作成を禁止
+        if (isInternalDirectory(folderName)) {
+            return res.status(400).json({
+                error:
+                    "この名前のフォルダは作成できません。"
+            });
+        }
+
         const parentDirectory =
             getSafeMediaPath(
                 relativePath
@@ -143,6 +174,13 @@ router.post("/", async (req, res) => {
     } catch (error) {
         console.error(error);
 
+        if (error.code === "EEXIST") {
+            return res.status(409).json({
+                error:
+                    "同じ名前のフォルダがすでに存在します。"
+            });
+        }
+
         res.status(500).json({
             error:
                 "Failed to create folder"
@@ -166,6 +204,20 @@ router.delete("/", async (req, res) => {
             return res.status(400).json({
                 error:
                     "Cannot delete root folder"
+            });
+        }
+
+        // パスの最後のフォルダ名を取得
+        const folderName =
+            path.basename(
+                relativePath
+            );
+
+        // 内部フォルダの削除を禁止
+        if (isInternalDirectory(folderName)) {
+            return res.status(403).json({
+                error:
+                    "このフォルダは削除できません。"
             });
         }
 
@@ -252,6 +304,28 @@ router.put("/", async (req, res) => {
             return res.status(400).json({
                 error:
                     "Invalid folder name"
+            });
+        }
+
+        // 現在のフォルダ名を確認
+        const currentName =
+            path.basename(
+                relativePath
+            );
+
+        // 内部フォルダの名前変更を禁止
+        if (isInternalDirectory(currentName)) {
+            return res.status(403).json({
+                error:
+                    "このフォルダは名前を変更できません。"
+            });
+        }
+
+        // 内部フォルダ名への変更も禁止
+        if (isInternalDirectory(newName)) {
+            return res.status(400).json({
+                error:
+                    "この名前には変更できません。"
             });
         }
 

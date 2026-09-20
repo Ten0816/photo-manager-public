@@ -24,38 +24,75 @@
                 <div id="storage-bar-fill"></div>
             </div>
         </div>
+
+        <button id="trash-button">
+            🗑 ゴミ箱
+        </button>
     </header>
 
     <main>
-        <section id="folder-section">
-            <div id="breadcrumb"></div>
 
-            <button id="parent-folder-button">
-                1つ上へ
-            </button>
+        <!-- 通常画面 -->
+        <section id="normal-view">
 
-            <button id="create-folder-button">
-                新しいフォルダ
-            </button>
+            <section id="folder-section">
+                <div id="breadcrumb"></div>
 
-            <div id="folder-list"></div>
+                <button id="parent-folder-button">
+                    1つ上へ
+                </button>
+
+                <button id="create-folder-button">
+                    新しいフォルダ
+                </button>
+
+                <div id="folder-list"></div>
+            </section>
+
+            <section id="upload-section">
+                <input
+                    type="file"
+                    id="file-input"
+                    accept="image/*,video/*"
+                    multiple
+                >
+
+                <button id="upload-button">
+                    アップロード
+                </button>
+
+                <div id="upload-status"></div>
+            </section>
+
+            <div id="media-list"></div>
+
         </section>
 
-        <section id="upload-section">
-            <input type="file" id="file-input" accept="image/*,video/*" multiple>
+        <!-- ゴミ箱画面 -->
+        <section id="trash-view">
 
-            <button id="upload-button">
-                アップロード
-            </button>
+            <div id="trash-header">
+                <button id="back-from-trash-button">
+                    ← 戻る
+                </button>
 
-            <div id="upload-status"></div>
+                <h2>ゴミ箱</h2>
+
+                <button id="empty-trash-button">
+                    ゴミ箱を空にする
+                </button>
+            </div>
+
+            <div id="trash-list"></div>
+
         </section>
 
-        <div id="media-list"></div>
     </main>
 
     <div id="media-modal" class="modal">
-        <button id="modal-close" class="modal-close">×</button>
+        <button id="modal-close" class="modal-close">
+            ×
+        </button>
 
         <div id="modal-content"></div>
     </div>

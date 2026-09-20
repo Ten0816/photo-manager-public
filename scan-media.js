@@ -14,19 +14,33 @@ async function scanDirectory(directory) {
     const files = [];
 
     for (const entry of entries) {
-        const fullPath = path.join(directory, entry.name);
+        const fullPath =
+            path.join(
+                directory,
+                entry.name
+            );
 
-        // thumbnailsフォルダはメディアとして扱わない
+        // アプリ内部フォルダはスキャンしない
         if (
             entry.isDirectory() &&
-            entry.name === "thumbnails"
+            (
+                entry.name === ".thumbnails" ||
+                entry.name === ".trash" 
+            )
         ) {
             continue;
         }
 
         if (entry.isDirectory()) {
-            const childFiles = await scanDirectory(fullPath);
-            files.push(...childFiles);
+            const childFiles =
+                await scanDirectory(
+                    fullPath
+                );
+
+            files.push(
+                ...childFiles
+            );
+
             continue;
         }
 
