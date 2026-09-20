@@ -1424,6 +1424,89 @@ app.get(
     }
 );
 
+// ============================================================
+// ストレージAPI
+// ============================================================
+
+/**
+ * ストレージ使用量取得
+ *
+ * GET /api/storage
+ */
+app.get(
+    "/api/storage",
+    async (req, res) => {
+
+        try {
+
+            const {
+                stdout
+            } = await execFileAsync(
+                "df",
+                [
+                    "-B1",
+                    MEDIA_DIR
+                ]
+            );
+
+            const lines =
+                stdout.trim().split("\n");
+
+            if (lines.length < 2) {
+                throw new Error(
+                    "Unexpected df output"
+                );
+            }
+
+            const values =
+                lines[1]
+                    .trim()
+                    .split(/\s+/);
+
+            const total =
+                Number(values[1]);
+
+            const used =
+                Number(values[2]);
+
+            const free =
+                Number(values[3]);
+
+            const usagePercent =
+                total === 0
+                    ? 0
+                    : Number(
+                        (
+                            used /
+                            total *
+                            100
+                        ).toFixed(1)
+                    );
+
+            res.json({
+
+                total,
+
+                used,
+
+                free,
+
+                usagePercent
+
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            res.status(500).json({
+                error:
+                    "Failed to get storage information"
+            });
+        }
+    }
+);
+
 
 // ============================================================
 // サーバー起動

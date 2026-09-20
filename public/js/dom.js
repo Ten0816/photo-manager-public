@@ -34,3 +34,18 @@ export const modalContent =
 
 export const modalClose =
     document.getElementById("modal-close");
+
+export const storageInfo =
+    document.getElementById(
+        "storage-info"
+    );
+
+export const storageText =
+    document.getElementById(
+        "storage-text"
+    );
+
+export const storageBarFill =
+    document.getElementById(
+        "storage-bar-fill"
+    );
