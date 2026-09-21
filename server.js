@@ -17,6 +17,9 @@ const folderRoutes =
 const mediaRoutes =
     require("./routes/mediaRoutes");
 
+const mediaInfoRoutes =
+    require("./routes/mediaInfoRoutes");
+
 const uploadRoutes =
     require("./routes/uploadRoutes");
 
@@ -81,6 +84,11 @@ app.use(
 app.use(
     "/api/media",
     mediaRoutes
+);
+
+app.use(
+    "/api/media-info",
+    mediaInfoRoutes
 );
 
 app.use(

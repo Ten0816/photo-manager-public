@@ -38,6 +38,7 @@ services:
         sleep 60
         while true; do
           node scan-media.js
+          node cleanup-trash.js
           sleep 300
         done
 
