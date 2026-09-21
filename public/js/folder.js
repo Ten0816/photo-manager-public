@@ -64,76 +64,202 @@ export function createFolderItem(folder) {
     const folderElement =
         document.createElement("div");
 
+    folderElement.className =
+        "folder-item";
+
+
+    // ========================================================
+    // フォルダを開く
+    // ========================================================
+
     const openButton =
         document.createElement("button");
 
-    openButton.textContent =
-        "📁 " + folder.name;
+    openButton.className =
+        "folder-open-button";
 
     openButton.addEventListener(
         "click",
         () => {
-            openFolder(
-                folder.path
-            );
+            openFolder(folder.path);
         }
     );
 
 
-    // ----------------------------
+    const icon =
+        document.createElement("div");
+
+    icon.className =
+        "folder-icon";
+
+    icon.textContent =
+        "📁";
+
+
+    const name =
+        document.createElement("span");
+
+    name.className =
+        "folder-name";
+
+    name.textContent =
+        folder.name;
+
+
+    openButton.appendChild(icon);
+    openButton.appendChild(name);
+
+
+    // ========================================================
+    // 操作メニュー
+    // ========================================================
+
+    const actions =
+        document.createElement("div");
+
+    actions.className =
+        "folder-actions";
+
+
+    // --------------------------------------------------------
+    // メニューボタン
+    // --------------------------------------------------------
+
+    const menuButton =
+        document.createElement("button");
+
+    menuButton.className =
+        "folder-menu-button";
+
+    menuButton.textContent =
+        "⋮";
+
+    menuButton.title =
+        "フォルダの操作";
+
+
+    // --------------------------------------------------------
+    // メニュー
+    // --------------------------------------------------------
+
+    const menu =
+        document.createElement("div");
+
+    menu.className =
+        "folder-menu";
+
+    menu.hidden = true;
+
+
+    // ========================================================
     // 名前変更
-    // ----------------------------
+    // ========================================================
 
     const renameButton =
         document.createElement("button");
 
+    renameButton.className =
+        "folder-menu-item";
+
     renameButton.textContent =
-        "名前変更";
+        "名前を変更";
+
 
     renameButton.addEventListener(
         "click",
         async (event) => {
             event.stopPropagation();
 
-            await renameFolder(
-                folder
-            );
+            menu.hidden = true;
+
+            await renameFolder(folder);
         }
     );
 
 
-    // ----------------------------
+    // ========================================================
     // 削除
-    // ----------------------------
+    // ========================================================
 
     const deleteButton =
         document.createElement("button");
 
+    deleteButton.className =
+        "folder-menu-item folder-menu-delete";
+
     deleteButton.textContent =
         "削除";
+
 
     deleteButton.addEventListener(
         "click",
         async (event) => {
             event.stopPropagation();
 
-            await deleteFolder(
-                folder
-            );
+            menu.hidden = true;
+
+            await deleteFolder(folder);
         }
     );
 
+
+    menu.appendChild(renameButton);
+    menu.appendChild(deleteButton);
+
+
+    // ========================================================
+    // メニュー開閉
+    // ========================================================
+
+    menuButton.addEventListener(
+        "click",
+        (event) => {
+            event.stopPropagation();
+
+            const isOpening =
+                menu.hidden;
+
+            // 他のメニューを閉じる
+            document
+                .querySelectorAll(".folder-menu")
+                .forEach((otherMenu) => {
+                    otherMenu.hidden = true;
+                });
+
+            document
+                .querySelectorAll(".folder-item")
+                .forEach((otherItem) => {
+                    otherItem.classList.remove(
+                        "menu-open"
+                    );
+                });
+
+            // このメニューを開く
+            if (isOpening) {
+                menu.hidden = false;
+
+                folderElement.classList.add(
+                    "menu-open"
+                );
+            }
+        }
+    );
+
+
+    actions.appendChild(menuButton);
+    actions.appendChild(menu);
+
+
+    // ========================================================
+    // DOM
+    // ========================================================
 
     folderElement.appendChild(
         openButton
     );
 
     folderElement.appendChild(
-        renameButton
-    );
-
-    folderElement.appendChild(
-        deleteButton
+        actions
     );
 
     folderList.appendChild(

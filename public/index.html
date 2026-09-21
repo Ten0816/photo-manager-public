@@ -1,55 +1,142 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <title>Photo Manager</title>
+<title>Photo Manager</title>
 
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/viewer.css">
+<link
+    rel="stylesheet"
+    href="css/common.css"
+>
+
+<link
+    rel="stylesheet"
+    href="css/viewer.css"
+>
+
 </head>
 
 <body>
-    <header>
-        <h1>Photo Manager</h1>
 
-        <div id="storage-info">
-            <div id="storage-text">
-                ストレージを取得中...
+<header class="app-header">
+
+    <div class="header-inner">
+
+        <div class="app-title">
+            <div class="app-logo">
+                ◉
             </div>
 
-            <div id="storage-bar">
-                <div id="storage-bar-fill"></div>
-            </div>
+            <h1>
+                Photo Manager
+            </h1>
         </div>
 
-        <button id="trash-button">
-            🗑 ゴミ箱
-        </button>
-    </header>
 
-    <main>
+        <div class="header-actions">
 
-        <!-- 通常画面 -->
-        <section id="normal-view">
+            <div id="storage-info">
 
-            <section id="folder-section">
-                <div id="breadcrumb"></div>
+                <div id="storage-text">
+                    ストレージを取得中...
+                </div>
 
-                <button id="parent-folder-button">
-                    1つ上へ
+                <div id="storage-bar">
+                    <div id="storage-bar-fill"></div>
+                </div>
+
+            </div>
+
+
+            <button
+                id="trash-button"
+                class="secondary-button"
+            >
+                <span>🗑</span>
+                <span>ゴミ箱</span>
+            </button>
+
+        </div>
+
+    </div>
+
+</header>
+
+
+<main>
+
+    <!-- ================================
+         通常画面
+    ================================= -->
+
+    <section id="normal-view">
+
+
+        <!-- フォルダ・パンくず -->
+
+        <section id="folder-section">
+
+            <div
+                id="breadcrumb"
+                class="breadcrumb"
+            ></div>
+
+
+            <div class="folder-toolbar">
+
+                <button
+                    id="parent-folder-button"
+                    class="secondary-button"
+                >
+                    ← 1つ上へ
                 </button>
 
-                <button id="create-folder-button">
-                    新しいフォルダ
+
+                <button
+                    id="create-folder-button"
+                    class="primary-button"
+                >
+                    ＋ 新しいフォルダ
                 </button>
 
-                <div id="folder-list"></div>
-            </section>
+            </div>
 
-            <section id="upload-section">
+
+            <div id="folder-list"></div>
+
+        </section>
+
+
+        <!-- アップロード -->
+
+        <section id="upload-section">
+
+            <div class="upload-area">
+
+                <div class="upload-icon">
+                    ↑
+                </div>
+
+                <div class="upload-content">
+
+                    <strong>
+                        写真・動画を追加
+                    </strong>
+
+                    <span>
+                        ここにファイルを選択してください
+                    </span>
+
+                </div>
+
+
                 <input
                     type="file"
                     id="file-input"
@@ -57,47 +144,115 @@
                     multiple
                 >
 
-                <button id="upload-button">
+
+                <button
+                    id="upload-button"
+                    class="primary-button"
+                >
                     アップロード
                 </button>
 
-                <div id="upload-status"></div>
-            </section>
+            </div>
+
+
+            <div id="upload-status"></div>
+
+        </section>
+
+
+        <!-- メディア一覧 -->
+
+        <section class="media-section">
+
+            <div class="section-header">
+
+                <h2>
+                    メディア
+                </h2>
+
+            </div>
+
 
             <div id="media-list"></div>
 
         </section>
 
-        <!-- ゴミ箱画面 -->
-        <section id="trash-view">
 
-            <div id="trash-header">
-                <button id="back-from-trash-button">
-                    ← 戻る
-                </button>
+    </section>
 
-                <h2>ゴミ箱</h2>
 
-                <button id="empty-trash-button">
-                    ゴミ箱を空にする
-                </button>
+    <!-- ================================
+         ゴミ箱
+    ================================= -->
+
+    <section id="trash-view">
+
+        <div id="trash-header">
+
+            <button
+                id="back-from-trash-button"
+                class="secondary-button"
+            >
+                ← 戻る
+            </button>
+
+
+            <div class="trash-title">
+
+                <h2>
+                    ゴミ箱
+                </h2>
+
+                <span>
+                    削除したファイル
+                </span>
+
             </div>
 
-            <div id="trash-list"></div>
 
-        </section>
+            <button
+                id="empty-trash-button"
+            >
+                ゴミ箱を空にする
+            </button>
 
-    </main>
+        </div>
 
-    <div id="media-modal" class="modal">
-        <button id="modal-close" class="modal-close">
-            ×
-        </button>
 
-        <div id="modal-content"></div>
-    </div>
+        <div id="trash-list"></div>
 
-    <script type="module" src="js/main.js"></script>
+    </section>
+
+</main>
+
+
+<!-- ================================
+     メディアビューア
+================================= -->
+
+<div
+    id="media-modal"
+    class="modal"
+>
+
+    <button
+        id="modal-close"
+        class="modal-close"
+    >
+        ×
+    </button>
+
+
+    <div id="modal-content"></div>
+
+</div>
+
+
+<script
+    type="module"
+    src="js/main.js"
+></script>
+
 </body>
 
 </html>
