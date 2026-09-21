@@ -1,9 +1,15 @@
 const express = require("express");
+
 const path = require("path");
 
 const {
     MEDIA_DIR
 } = require("./utils/pathUtils");
+
+const {
+    requireApiAuth,
+    requirePageAuth
+} = require("./auth");
 
 const folderRoutes =
     require("./routes/folderRoutes");
@@ -23,6 +29,8 @@ const storageRoutes =
 const trashRoutes =
     require("./routes/trashRoutes");
 
+const authRoutes =
+    require("./routes/authRoutes");
 
 const app = express();
 
@@ -31,33 +39,39 @@ const PORT =
         process.env.PORT || 3000
     );
 
+const PUBLIC_DIR =
+    path.join(
+        __dirname,
+        "public"
+    );
 
 // ============================================================
 // Express設定
 // ============================================================
 
 app.use(
-    express.static(
-        path.join(
-            __dirname,
-            "public"
-        )
-    )
-);
-
-app.use(
     express.json()
 );
 
-app.use(
-    "/media",
-    express.static(MEDIA_DIR)
-);
+// ============================================================
+// 認証API
+// ============================================================
 
+// ログイン・ログアウトは認証不要
+app.use(
+    "/api/auth",
+    authRoutes
+);
 
 // ============================================================
 // API
 // ============================================================
+
+// /api/auth 以外のAPIは認証必須
+app.use(
+    "/api",
+    requireApiAuth
+);
 
 app.use(
     "/api/folders",
@@ -89,17 +103,65 @@ app.use(
     trashRoutes
 );
 
+// ============================================================
+// メディアファイル
+// ============================================================
+
+// 写真・動画そのものも認証必須
+app.use(
+    "/media",
+    requireApiAuth,
+    express.static(MEDIA_DIR)
+);
+
+// ============================================================
+// ログイン画面
+// ============================================================
+
+// login.htmlだけは認証不要
+app.get(
+    "/login.html",
+    (req, res) => {
+        res.sendFile(
+            path.join(
+                PUBLIC_DIR,
+                "login.html"
+            )
+        );
+    }
+);
+
+// ============================================================
+// Webページ・CSS・JavaScript
+// ============================================================
+
+// public以下のファイルは認証必須
+//
+// index.html
+// css/*
+// js/*
+// などすべてここで保護する
+app.use(
+    requirePageAuth,
+    express.static(PUBLIC_DIR)
+);
 
 // ============================================================
 // 基本
 // ============================================================
 
-app.get("/", (req, res) => {
-    res.send(
-        "Photo Manager Server is running!"
-    );
-});
-
+app.get(
+    "/",
+    requirePageAuth,
+    (req, res) => {
+        res.sendFile(
+            path.join(
+                PUBLIC_DIR,
+                "index.html"
+            )
+        );
+    }
+);
 
 // ============================================================
 // サーバー起動

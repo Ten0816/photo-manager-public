@@ -4,6 +4,9 @@ services:
     container_name: photo-manager
     user: "1000:1003"
 
+    env_file:
+      - .env
+
     environment:
       PORT: 3000
       MEDIA_DIR: /data/Memory
