@@ -1,5 +1,5 @@
 /* ========================================
-   写真・動画ビューア
+   Viewer / Modal
 ======================================== */
 
 .modal {
@@ -26,16 +26,13 @@
 }
 
 
-/* ========================================
-   ビューア本体
-======================================== */
+/* ---------- Modal Content ---------- */
 
 #modal-content {
     width: 100%;
     height: 100%;
 
     display: flex;
-
     flex-direction: column;
 
     align-items: center;
@@ -47,11 +44,6 @@
 
     overflow: hidden;
 }
-
-
-/* ========================================
-   写真・動画
-======================================== */
 
 #modal-content img,
 #modal-content video {
@@ -67,9 +59,7 @@
 }
 
 
-/* ========================================
-   閉じるボタン
-======================================== */
+/* ---------- Close ---------- */
 
 .modal-close {
     position: fixed;
@@ -83,8 +73,7 @@
     border: none;
     border-radius: 50%;
 
-    background-color:
-        rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
 
     color: white;
 
@@ -95,27 +84,23 @@
 
     z-index: 1001;
 
-    transition:
-        background-color 0.2s;
+    transition: background-color 0.2s;
 }
 
 .modal-close:hover {
-    background-color:
-        rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 
-/* ========================================
-   EXIF情報
-======================================== */
+/* ---------- EXIF ---------- */
 
 .exif-info {
-    margin-top: 15px;
+    max-width: 90vw;
 
+    margin-top: 15px;
     padding: 10px 16px;
 
-    background-color:
-        rgba(0, 0, 0, 0.65);
+    background: rgba(0, 0, 0, 0.65);
 
     color: white;
 
@@ -126,8 +111,6 @@
     line-height: 1.6;
 
     font-size: 14px;
-
-    max-width: 90vw;
 
     box-sizing: border-box;
 }
@@ -149,30 +132,25 @@
 }
 
 
-/* ========================================
-   前後移動ボタン
-======================================== */
+/* ---------- Viewer Buttons ---------- */
 
 .viewer-button {
     position: fixed;
 
     top: 50%;
 
-    transform:
-        translateY(-50%);
+    transform: translateY(-50%);
 
     width: 55px;
     height: 80px;
 
     border: none;
 
-    background-color:
-        rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.35);
 
     color: white;
 
     font-size: 60px;
-
     line-height: 1;
 
     cursor: pointer;
@@ -180,17 +158,14 @@
     z-index: 1001;
 
     display: flex;
-
     align-items: center;
     justify-content: center;
 
-    transition:
-        background-color 0.2s;
+    transition: background-color 0.2s;
 }
 
 .viewer-button:hover {
-    background-color:
-        rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .viewer-previous {
@@ -203,26 +178,19 @@
 
 
 /* ========================================
-   スマホ・Fold7折りたたみ時
-   ～599px
+   Responsive
 ======================================== */
 
-@media screen and (max-width: 599px) {
-
+@media (max-width: 599px) {
     #modal-content {
-        padding:
-            55px 8px 15px;
+        padding: 55px 8px 15px;
     }
 
     #modal-content img,
     #modal-content video {
         max-width: 100%;
-
         max-height: 72vh;
     }
-
-
-    /* 閉じるボタン */
 
     .modal-close {
         top: 8px;
@@ -234,17 +202,13 @@
         font-size: 30px;
     }
 
-
-    /* 前後ボタン */
-
     .viewer-button {
         width: 42px;
         height: 65px;
 
         font-size: 45px;
 
-        background-color:
-            rgba(0, 0, 0, 0.25);
+        background: rgba(0, 0, 0, 0.25);
     }
 
     .viewer-previous {
@@ -255,16 +219,11 @@
         right: 0;
     }
 
-
-    /* EXIF */
-
     .exif-info {
         width: calc(100% - 16px);
-
         max-width: none;
 
         margin-top: 10px;
-
         padding: 9px 12px;
 
         font-size: 13px;
@@ -272,24 +231,14 @@
 }
 
 
-/* ========================================
-   Fold7展開・タブレット
-   600px～899px
-======================================== */
-
-@media screen
-    and (min-width: 600px)
-    and (max-width: 899px) {
-
+@media (max-width: 899px) and (min-width: 600px) {
     #modal-content {
-        padding:
-            60px 65px 25px;
+        padding: 60px 65px 25px;
     }
 
     #modal-content img,
     #modal-content video {
         max-width: 85vw;
-
         max-height: 76vh;
     }
 
@@ -300,19 +249,10 @@
 }
 
 
-/* ========================================
-   Fold7展開・横向き
-======================================== */
-
-@media screen
-    and (min-width: 600px)
-    and (max-width: 899px)
-    and (orientation: landscape) {
-
+@media (max-width: 899px) and (min-width: 600px) and (orientation: landscape) {
     #modal-content img,
     #modal-content video {
         max-width: 82vw;
-
         max-height: 78vh;
     }
 }
