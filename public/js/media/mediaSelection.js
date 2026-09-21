@@ -8,7 +8,8 @@ import {
 import {
     selectedMediaCount,
     bulkDeleteMediaButton,
-    bulkMoveMediaButton
+    bulkMoveMediaButton,
+    bulkDownloadMediaButton
 } from "../dom.js";
 
 import {
@@ -16,6 +17,10 @@ import {
     showAlert,
     showPrompt
 } from "../modal.js";
+
+import {
+    downloadSelectedMedia
+} from "./mediaDownload.js";
 
 
 // ============================================================
@@ -48,6 +53,11 @@ export function updateMediaSelectionUI() {
     if (bulkMoveMediaButton) {
 
         bulkMoveMediaButton.disabled =
+            count === 0;
+    }
+
+    if (bulkDownloadMediaButton) {
+        bulkDownloadMediaButton.disabled =
             count === 0;
     }
 }
@@ -175,6 +185,14 @@ export async function bulkDeleteMedia() {
 
         clearSelectedMedia();
 
+        const {
+            refreshMedia
+        } = await import(
+            "./media.js"
+        );
+
+        await refreshMedia();
+
 
         // media.jsから後で渡す
         // refreshMediaをここでは直接importしない
@@ -289,6 +307,14 @@ export async function bulkMoveMedia() {
 
 
         clearSelectedMedia();
+
+        const {
+            refreshMedia
+        } = await import(
+            "./media.js"
+        );
+
+        await refreshMedia();
 
 
     } catch (error) {

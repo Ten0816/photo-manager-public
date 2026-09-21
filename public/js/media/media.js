@@ -21,15 +21,14 @@ import {
 
 import {
     mediaList,
-
     mediaSortSelect,
-
     mediaSelectionButton,
     mediaSelectionToolbar,
     selectAllMediaButton,
     clearMediaSelectionButton,
     bulkDeleteMediaButton,
-    bulkMoveMediaButton
+    bulkMoveMediaButton,
+    bulkDownloadMediaButton
 } from "../dom.js";
 
 import {
@@ -51,6 +50,10 @@ import {
     selectAllVisibleMedia,
     clearMediaSelection
 } from "./mediaSelection.js";
+
+import {
+    downloadSelectedMedia
+} from "./mediaDownload.js";
 
 
 // ============================================================
@@ -222,6 +225,30 @@ export function initMediaEvents() {
             bulkMoveMedia
         );
     }
+
+    bulkDownloadMediaButton.addEventListener(
+        "click",
+        async () => {
+            const selectedMedia =
+                Array.from(
+                    document.querySelectorAll(
+                        ".media-item"
+                    )
+                )
+                    .map(item => item.mediaData)
+                    .filter(
+                        media =>
+                            media &&
+                            selectedMediaIds.has(
+                                media.id
+                            )
+                    );
+
+            await downloadSelectedMedia(
+                selectedMedia
+            );
+        }
+    );
 
 
     // ----------------------------

@@ -81,6 +81,9 @@ export const bulkDeleteMediaButton =
 export const bulkMoveMediaButton =
     document.getElementById("bulk-move-media-button");
 
+export const bulkDownloadMediaButton =
+    document.getElementById("bulk-download-media-button");
+
 // 並び順
 export const mediaSortSelect =
     document.getElementById("media-sort");
