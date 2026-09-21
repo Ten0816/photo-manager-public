@@ -6,6 +6,8 @@ import {
 
 let currentViewerMedia = null;
 
+let currentViewerMediaInfo = null;
+
 let currentViewerIndex = -1;
 
 let viewerMediaList = [];
@@ -161,12 +163,70 @@ export function openViewer(media) {
 
   currentViewerMedia = media;
 
-  renderViewer();
-
   modal.classList.add("active");
+
+  loadViewerMedia(media);
 
   // 背景ページをスクロールさせない
   document.body.style.overflow = "hidden";
+}
+
+
+/**
+ * メディア詳細情報を取得
+ */
+async function fetchMediaInfo(media) {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/media-info?path=" +
+        encodeURIComponent(media.path)
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        "Media info request failed: " +
+        response.status
+      );
+    }
+
+    return await response.json();
+
+  } catch (error) {
+
+    console.error(
+      "メディア詳細情報の取得に失敗しました:",
+      error
+    );
+
+    return null;
+  }
+}
+
+
+/**
+ * ビューアのメディアを切り替える
+ */
+async function loadViewerMedia(media) {
+  currentViewerMedia = media;
+  currentViewerMediaInfo = null;
+
+  renderViewer();
+
+  const info =
+    await fetchMediaInfo(media);
+
+  if (
+    currentViewerMedia?.id !== media.id
+  ) {
+    return;
+  }
+
+  currentViewerMediaInfo = info;
+
+  renderMediaInfo();
 }
 
 
@@ -253,33 +313,10 @@ export function renderViewer() {
 
 
   // ========================================================
-  // EXIF
+  // メディア詳細情報
   // ========================================================
 
-  const exifInfo =
-    document.createElement("div");
-
-  exifInfo.className =
-    "exif-info";
-
-
-  const takenAt =
-    formatTakenAt(
-      media.taken_at
-    );
-
-
-  exifInfo.innerHTML = `
-      <div>
-          <strong>撮影日時</strong>
-          ${takenAt}
-      </div>
-  `;
-
-
-  modalContent.appendChild(
-    exifInfo
-  );
+  renderMediaInfo();
 
 
   // ========================================================
@@ -325,7 +362,7 @@ export function renderViewer() {
   if (
     currentViewerIndex >= 0 &&
     currentViewerIndex <
-    viewerMediaList.length - 1
+      viewerMediaList.length - 1
   ) {
 
     const nextButton =
@@ -360,24 +397,157 @@ export function renderViewer() {
 
 
 /**
+ * メディア詳細情報を描画
+ */
+function renderMediaInfo() {
+
+  const existing =
+    modalContent.querySelector(
+      ".media-details"
+    );
+
+  if (existing) {
+    existing.remove();
+  }
+
+
+  const detailsContainer =
+    document.createElement("div");
+
+  detailsContainer.className =
+    "media-details";
+
+
+  const detailsButton =
+    document.createElement("button");
+
+  detailsButton.className =
+    "media-details-toggle";
+
+  detailsButton.type =
+    "button";
+
+  detailsButton.innerHTML =
+    "▼ 詳細情報";
+
+
+  const mediaInfo =
+    document.createElement("div");
+
+  mediaInfo.className =
+    "media-info";
+
+  mediaInfo.hidden =
+    true;
+
+
+  const info =
+    currentViewerMediaInfo;
+
+
+  if (!info) {
+
+    mediaInfo.innerHTML = `
+      <div>
+        詳細情報を取得中...
+      </div>
+    `;
+
+  } else {
+
+    mediaInfo.innerHTML = `
+      <div>
+        <strong>ファイル名</strong>
+        <span>
+          ${escapeHtml(info.name)}
+        </span>
+      </div>
+
+      <div>
+        <strong>ファイルサイズ</strong>
+        <span>
+          ${formatFileSize(info.fileSize)}
+        </span>
+      </div>
+
+      <div>
+        <strong>撮影日時</strong>
+        <span>
+          ${formatDateTime(info.takenAt)}
+        </span>
+      </div>
+
+      <div>
+        <strong>更新日時</strong>
+        <span>
+          ${formatDateTime(info.modifiedAt)}
+        </span>
+      </div>
+
+      <div>
+        <strong>種類</strong>
+        <span>
+          ${
+            info.type === "image"
+              ? "画像"
+              : "動画"
+          }
+        </span>
+      </div>
+    `;
+  }
+
+
+  detailsButton.addEventListener(
+    "click",
+    event => {
+
+      event.stopPropagation();
+
+      const isOpen =
+        !mediaInfo.hidden;
+
+      mediaInfo.hidden =
+        isOpen;
+
+      detailsButton.innerHTML =
+        isOpen
+          ? "▼ 詳細情報"
+          : "▲ 詳細情報";
+    }
+  );
+
+
+  detailsContainer.appendChild(
+    detailsButton
+  );
+
+  detailsContainer.appendChild(
+    mediaInfo
+  );
+
+  modalContent.appendChild(
+    detailsContainer
+  );
+}
+
+
+/**
  * 前のメディアを表示
  */
 export function showPreviousMedia() {
-
-  if (
-    currentViewerIndex <= 0
-  ) {
+  if (currentViewerIndex <= 0) {
     return;
   }
 
   currentViewerIndex--;
 
-  currentViewerMedia =
+  const media =
     viewerMediaList[
     currentViewerIndex
     ];
 
-  renderViewer();
+  loadViewerMedia(media);
 }
 
 
@@ -385,7 +555,6 @@ export function showPreviousMedia() {
  * 次のメディアを表示
  */
 export function showNextMedia() {
-
   if (
     currentViewerIndex < 0 ||
     currentViewerIndex >=
@@ -396,40 +565,106 @@ export function showNextMedia() {
 
   currentViewerIndex++;
 
-  currentViewerMedia =
+  const media =
     viewerMediaList[
     currentViewerIndex
     ];
 
-  renderViewer();
+  loadViewerMedia(media);
 }
 
 
 /**
- * 撮影日時を表示用に変換
+ * 日時を表示用に変換
  */
-export function formatTakenAt(
-  dateString
+export function formatDateTime(
+  dateValue
 ) {
 
-  if (!dateString) {
+  if (
+    dateValue === null ||
+    dateValue === undefined ||
+    dateValue === ""
+  ) {
     return "記録されていません";
   }
 
+
   const date =
-    new Date(dateString);
+    new Date(dateValue);
+
 
   if (
     Number.isNaN(
       date.getTime()
     )
   ) {
-    return dateString;
+    return String(dateValue);
   }
+
 
   return date.toLocaleString(
     "ja-JP"
   );
+}
+
+
+/**
+ * ファイルサイズを表示用に変換
+ */
+export function formatFileSize(
+  bytes
+) {
+
+  if (
+    !Number.isFinite(bytes) ||
+    bytes < 0
+  ) {
+    return "不明";
+  }
+
+
+  if (bytes < 1024) {
+    return bytes + " B";
+  }
+
+
+  if (bytes < 1024 * 1024) {
+    return (
+      (bytes / 1024).toFixed(1) +
+      " KB"
+    );
+  }
+
+
+  if (bytes < 1024 * 1024 * 1024) {
+    return (
+      (bytes / (1024 * 1024)).toFixed(1) +
+      " MB"
+    );
+  }
+
+
+  return (
+    (bytes / (1024 * 1024 * 1024)).toFixed(2) +
+    " GB"
+  );
+}
+
+
+/**
+ * HTMLに安全に表示する
+ */
+function escapeHtml(
+  value
+) {
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 
@@ -454,6 +689,8 @@ export function closeModal() {
     "";
 
   currentViewerMedia = null;
+
+  currentViewerMediaInfo = null;
 
   currentViewerIndex = -1;
 
