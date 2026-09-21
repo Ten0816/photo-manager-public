@@ -12,7 +12,13 @@ import {
 
 import {
     refreshMedia
-} from "./media.js";
+} from "./media/media.js";
+
+import {
+    showPrompt,
+    showConfirm,
+    showAlert
+} from "./modal.js";
 
 
 // ============================================================
@@ -272,10 +278,12 @@ export function createFolderItem(folder) {
  * フォルダ名前変更
  */
 export async function renameFolder(folder) {
-    const newName = prompt(
-        "新しいフォルダ名を入力してください。",
-        folder.name
-    );
+    const newName =
+        await showPrompt(
+            "フォルダ名を変更",
+            folder.name,
+            "新しいフォルダ名を入力してください。"
+        );
 
     if (
         !newName ||
@@ -319,9 +327,12 @@ export async function renameFolder(folder) {
     } catch (error) {
         console.error(error);
 
-        alert(
-            "フォルダ名の変更に失敗しました。\n" +
-            error.message
+        await showAlert(
+            "フォルダ名を変更できません",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }
@@ -331,11 +342,17 @@ export async function renameFolder(folder) {
  * フォルダ削除
  */
 export async function deleteFolder(folder) {
-    const confirmed = confirm(
-        "「" +
-        folder.name +
-        "」を削除しますか？"
-    );
+    const confirmed =
+        await showConfirm(
+            "フォルダを削除",
+            "「" +
+            folder.name +
+            "」を削除しますか？",
+            {
+                type: "danger",
+                confirmText: "削除"
+            }
+        );
 
     if (!confirmed) {
         return;
@@ -367,8 +384,12 @@ export async function deleteFolder(folder) {
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message
+        await showAlert(
+            "フォルダを削除できません",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }
@@ -413,9 +434,12 @@ export function openParentFolder() {
  * フォルダ作成
  */
 export async function createFolder() {
-    const folderName = prompt(
-        "フォルダ名を入力してください。"
-    );
+    const folderName =
+        await showPrompt(
+            "新しいフォルダ",
+            "",
+            "フォルダ名を入力してください。"
+        );
 
     if (!folderName) {
         return;
@@ -456,9 +480,12 @@ export async function createFolder() {
     } catch (error) {
         console.error(error);
 
-        alert(
-            "フォルダの作成に失敗しました。\n" +
-            error.message
+        await showAlert(
+            "フォルダを作成できません",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }

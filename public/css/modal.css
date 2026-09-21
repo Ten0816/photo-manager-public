@@ -1,0 +1,264 @@
+/* ========================================
+   App Dialog
+======================================== */
+
+.app-dialog {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 2000;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    box-sizing: border-box;
+}
+
+.app-dialog[hidden] {
+    display: none;
+}
+
+
+/* ---------- Backdrop ---------- */
+
+.app-dialog-backdrop {
+    position: absolute;
+
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.55);
+
+    backdrop-filter: blur(3px);
+}
+
+
+/* ---------- Panel ---------- */
+
+.app-dialog-panel {
+    position: relative;
+
+    width: min(92vw, 440px);
+
+    padding: 24px;
+
+    box-sizing: border-box;
+
+    background: white;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.25);
+
+    animation: app-dialog-show 0.15s ease-out;
+}
+
+@keyframes app-dialog-show {
+    from {
+        opacity: 0;
+
+        transform:
+            translateY(8px)
+            scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}
+
+
+/* ---------- Title ---------- */
+
+.app-dialog-title {
+    margin-bottom: 12px;
+
+    color: #222;
+
+    font-size: 18px;
+    font-weight: 600;
+
+    line-height: 1.4;
+}
+
+
+/* ---------- Message ---------- */
+
+.app-dialog-message {
+    margin-bottom: 18px;
+
+    color: #555;
+
+    font-size: 14px;
+
+    line-height: 1.6;
+
+    white-space: pre-wrap;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* ---------- Input ---------- */
+
+.app-dialog-input {
+    display: block;
+
+    width: 100%;
+
+    margin-bottom: 20px;
+
+    padding: 10px 12px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #ccc;
+    border-radius: 8px;
+
+    background: white;
+
+    color: #222;
+
+    font-size: 15px;
+
+    outline: none;
+
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+
+.app-dialog-input:focus {
+    border-color: #777;
+
+    box-shadow:
+        0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+
+
+/* ---------- Buttons ---------- */
+
+.app-dialog-actions {
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 8px;
+}
+
+.app-dialog-actions button {
+    min-width: 88px;
+
+    padding: 9px 16px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.15s,
+        transform 0.05s;
+}
+
+.app-dialog-actions button:active {
+    transform: scale(0.97);
+}
+
+
+/* ---------- Cancel ---------- */
+
+.app-dialog-cancel {
+    background: #eee;
+
+    color: #333;
+}
+
+.app-dialog-cancel:hover {
+    background: #ddd;
+}
+
+
+/* ---------- Confirm ---------- */
+
+.app-dialog-confirm {
+    background: #333;
+
+    color: white;
+}
+
+.app-dialog-confirm:hover {
+    background: #222;
+}
+
+
+/* ========================================
+   Destructive
+======================================== */
+
+.app-dialog[data-type="danger"]
+    .app-dialog-confirm {
+    background: #d64545;
+}
+
+.app-dialog[data-type="danger"]
+    .app-dialog-confirm:hover {
+    background: #bd3535;
+}
+
+
+/* ========================================
+   Error
+======================================== */
+
+.app-dialog[data-type="error"]
+    .app-dialog-confirm {
+    background: #555;
+}
+
+
+/* ========================================
+   Mobile
+======================================== */
+
+@media (max-width: 599px) {
+    .app-dialog {
+        padding: 16px;
+    }
+
+    .app-dialog-panel {
+        width: 100%;
+
+        padding: 20px;
+
+        border-radius: 12px;
+    }
+
+    .app-dialog-title {
+        font-size: 17px;
+    }
+
+    .app-dialog-message {
+        font-size: 13px;
+    }
+
+    .app-dialog-actions button {
+        flex: 1;
+
+        min-width: 0;
+
+        padding: 11px 12px;
+    }
+}

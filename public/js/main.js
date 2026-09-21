@@ -6,7 +6,7 @@ import {
 import {
     initMediaEvents,
     loadMedia
-} from "./media.js";
+} from "./media/media.js";
 
 import {
     initViewer

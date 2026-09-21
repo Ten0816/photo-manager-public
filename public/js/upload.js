@@ -12,7 +12,7 @@ import {
 
 import {
     loadMedia
-} from "./media.js";
+} from "./media/media.js";
 
 
 /**

@@ -9,7 +9,12 @@ import {
 
 import {
     refreshMedia
-} from "./media.js";
+} from "./media/media.js";
+
+import {
+    showConfirm,
+    showAlert
+} from "./modal.js";
 
 /**
  * ゴミ箱一覧を取得
@@ -41,9 +46,12 @@ export async function loadTrash() {
     } catch (error) {
         console.error(error);
 
-        alert(
-            "ゴミ箱の読み込みに失敗しました。\n" +
-            error.message
+        await showAlert(
+            "ゴミ箱を読み込めませんでした",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }
@@ -202,10 +210,14 @@ async function restoreTrashItem(
     trashItem
 ) {
     const confirmed =
-        confirm(
+        await showConfirm(
+            "ファイルを復元",
             "「" +
             trashItem.original_path +
-            "」を復元しますか？"
+            "」を復元しますか？",
+            {
+                confirmText: "復元"
+            }
         );
 
     if (!confirmed) {
@@ -235,16 +247,20 @@ async function restoreTrashItem(
 
         await loadTrash();
 
-        alert(
-            "復元しました。"
+        await showAlert(
+            "ファイルを復元しました",
+            "ファイルを元の場所に戻しました。"
         );
 
     } catch (error) {
         console.error(error);
 
-        alert(
-            "復元に失敗しました。\n" +
-            error.message
+        await showAlert(
+            "ファイルを復元できませんでした",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }
@@ -257,11 +273,16 @@ async function permanentlyDelete(
     trashItem
 ) {
     const confirmed =
-        confirm(
+        await showConfirm(
+            "ファイルを完全に削除",
             "「" +
             trashItem.original_path +
             "」を完全に削除しますか？\n\n" +
-            "この操作は元に戻せません。"
+            "この操作は元に戻せません。",
+            {
+                type: "danger",
+                confirmText: "完全に削除"
+            }
         );
 
     if (!confirmed) {
@@ -293,9 +314,12 @@ async function permanentlyDelete(
     } catch (error) {
         console.error(error);
 
-        alert(
-            "完全削除に失敗しました。\n" +
-            error.message
+        await showAlert(
+            "ファイルを完全に削除できませんでした",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }
@@ -306,9 +330,14 @@ async function permanentlyDelete(
  */
 async function emptyTrash() {
     const confirmed =
-        confirm(
+        await showConfirm(
+            "ゴミ箱を空にする",
             "ゴミ箱内のすべてのファイルを完全に削除しますか？\n\n" +
-            "この操作は元に戻せません。"
+            "この操作は元に戻せません。",
+            {
+                type: "danger",
+                confirmText: "すべて削除"
+            }
         );
 
     if (!confirmed) {
@@ -339,9 +368,12 @@ async function emptyTrash() {
     } catch (error) {
         console.error(error);
 
-        alert(
-            "ゴミ箱を空にできませんでした。\n" +
-            error.message
+        await showAlert(
+            "ゴミ箱を空にできませんでした",
+            error.message,
+            {
+                type: "error"
+            }
         );
     }
 }

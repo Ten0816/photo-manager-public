@@ -35,6 +35,9 @@ const trashRoutes =
 const authRoutes =
     require("./routes/authRoutes");
 
+const downloadRoutes =
+    require("./routes/downloadRoutes");
+
 const app = express();
 
 const PORT =
@@ -109,6 +112,11 @@ app.use(
 app.use(
     "/api/trash",
     trashRoutes
+);
+
+app.use(
+    "/api/download",
+    downloadRoutes
 );
 
 // ============================================================
