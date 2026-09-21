@@ -240,7 +240,7 @@ export async function bulkMoveMedia() {
         await showPrompt(
             "ファイルを移動",
             "",
-            "移動先のフォルダを入力してください。\n例: 東京旅行"
+            "移動先のフォルダを入力してください。\n空欄でMemory直下へ移動します。"
         );
 
 
@@ -250,21 +250,7 @@ export async function bulkMoveMedia() {
 
 
     const trimmedDestination =
-        destination.trim();
-
-
-    if (!trimmedDestination) {
-
-        await showAlert(
-            "移動できません",
-            "移動先フォルダを入力してください。",
-            {
-                type: "error"
-            }
-        );
-
-        return;
-    }
+    destination.trim();
 
 
     try {

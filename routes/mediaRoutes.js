@@ -968,15 +968,6 @@ router.post("/bulk-move", async (req, res) => {
         destination.trim();
 
 
-    if (!trimmedDestination) {
-
-        return res.status(400).json({
-            error:
-                "Destination is required"
-        });
-    }
-
-
     const uniqueIds = [
         ...new Set(
             ids.map(id => Number(id))
