@@ -4,14 +4,17 @@ import {
     pageSize,
     isLoading,
     hasMore,
+    mediaSort,
     setIsLoading,
     setHasMore,
     nextPage,
-    resetMediaState
+    resetMediaState,
+    setMediaSort
 } from "./state.js";
 
 import {
-    mediaList
+    mediaList,
+    mediaSortSelect
 } from "./dom.js";
 
 import {
@@ -45,7 +48,11 @@ export async function loadMedia() {
             "&page=" +
             currentPage +
             "&limit=" +
-            pageSize
+            pageSize +
+            "&sort=" +
+            encodeURIComponent(
+                mediaSort
+            )
         );
 
         if (!response.ok) {
@@ -495,12 +502,35 @@ export async function deleteMedia(
 export function initMediaEvents() {
 
     // ----------------------------
+    // ソート変更
+    // ----------------------------
+
+    if (mediaSortSelect) {
+
+        mediaSortSelect.addEventListener(
+            "change",
+            async () => {
+
+                setMediaSort(
+                    mediaSortSelect.value
+                );
+
+                await refreshMedia();
+
+            }
+        );
+
+    }
+
+
+    // ----------------------------
     // 無限スクロール
     // ----------------------------
 
     window.addEventListener(
         "scroll",
         () => {
+
             const scrollPosition =
                 window.innerHeight +
                 window.scrollY;
@@ -513,8 +543,12 @@ export function initMediaEvents() {
                 scrollPosition >=
                 pageHeight - 1000
             ) {
+
                 loadMedia();
+
             }
+
         }
     );
+
 }

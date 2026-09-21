@@ -1,6 +1,9 @@
 export const mediaList =
     document.getElementById("media-list");
 
+export const mediaSortSelect =
+    document.getElementById("media-sort");
+
 export const folderList =
     document.getElementById("folder-list");
 

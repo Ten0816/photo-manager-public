@@ -84,6 +84,40 @@
 }
 
 
+/* ---------- Media Sort ---------- */
+
+#media-sort {
+    min-width: 180px;
+
+    padding: 7px 32px 7px 10px;
+
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+
+    background-color: #ffffff;
+
+    color: #333333;
+
+    font-size: 14px;
+
+    cursor: pointer;
+}
+
+#media-sort:hover {
+    border-color: #999999;
+}
+
+#media-sort:focus {
+    outline: none;
+
+    border-color: #666666;
+
+    box-shadow:
+        0 0 0 2px
+        rgba(0, 0, 0, 0.08);
+}
+
+
 /* ---------- Video ---------- */
 
 .video-play-icon {
@@ -222,4 +256,16 @@
 
         font-size: 16px;
     }
+}
+
+@media (max-width: 600px) {
+
+    #media-sort {
+        min-width: 0;
+
+        padding: 6px 28px 6px 8px;
+
+        font-size: 13px;
+    }
+
 }

@@ -4,246 +4,234 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Photo Manager</title>
+    <title>Photo Manager</title>
 
-<link rel="stylesheet" href="./css/main.css">
+    <link rel="stylesheet" href="./css/main.css">
 
 </head>
 
 <body>
 
-<header class="app-header">
+    <header class="app-header">
 
-    <div class="header-inner">
+        <div class="header-inner">
 
-        <div class="app-title">
-            <div class="app-logo">
-                ◉
-            </div>
-
-            <h1>
-                Photo Manager
-            </h1>
-        </div>
-
-
-        <div class="header-actions">
-
-            <div id="storage-info">
-
-                <div id="storage-text">
-                    ストレージを取得中...
+            <div class="app-title">
+                <div class="app-logo">
+                    ◉
                 </div>
 
-                <div id="storage-bar">
-                    <div id="storage-bar-fill"></div>
-                </div>
-
+                <h1>
+                    Photo Manager
+                </h1>
             </div>
 
 
-            <button
-                id="trash-button"
-                class="secondary-button"
-            >
-                <span>🗑</span>
-                <span>ゴミ箱</span>
-            </button>
+            <div class="header-actions">
+
+                <div id="storage-info">
+
+                    <div id="storage-text">
+                        ストレージを取得中...
+                    </div>
+
+                    <div id="storage-bar">
+                        <div id="storage-bar-fill"></div>
+                    </div>
+
+                </div>
+
+
+                <button id="trash-button" class="secondary-button">
+                    <span>🗑</span>
+                    <span>ゴミ箱</span>
+                </button>
+
+            </div>
 
         </div>
 
-    </div>
-
-</header>
+    </header>
 
 
-<main>
+    <main>
 
-    <!-- ================================
+        <!-- ================================
          通常画面
     ================================= -->
 
-    <section id="normal-view">
+        <section id="normal-view">
 
 
-        <!-- フォルダ・パンくず -->
+            <!-- フォルダ・パンくず -->
 
-        <section id="folder-section">
+            <section id="folder-section">
 
-            <div
-                id="breadcrumb"
-                class="breadcrumb"
-            ></div>
+                <div id="breadcrumb" class="breadcrumb"></div>
 
 
-            <div class="folder-toolbar">
+                <div class="folder-toolbar">
 
-                <button
-                    id="parent-folder-button"
-                    class="secondary-button"
-                >
-                    ← 1つ上へ
-                </button>
+                    <button id="parent-folder-button" class="secondary-button">
+                        ← 1つ上へ
+                    </button>
 
 
-                <button
-                    id="create-folder-button"
-                    class="primary-button"
-                >
-                    ＋ 新しいフォルダ
-                </button>
+                    <button id="create-folder-button" class="primary-button">
+                        ＋ 新しいフォルダ
+                    </button>
 
-            </div>
+                </div>
 
 
-            <div id="folder-list"></div>
+                <div id="folder-list"></div>
+
+            </section>
+
+
+            <!-- アップロード -->
+
+            <section id="upload-section">
+
+                <div class="upload-area">
+
+                    <div class="upload-icon">
+                        ↑
+                    </div>
+
+                    <div class="upload-content">
+
+                        <strong>
+                            写真・動画を追加
+                        </strong>
+
+                        <span>
+                            ここにファイルを選択してください
+                        </span>
+
+                    </div>
+
+
+                    <input type="file" id="file-input" accept="image/*,video/*" multiple>
+
+
+                    <button id="upload-button" class="primary-button">
+                        アップロード
+                    </button>
+
+                </div>
+
+
+                <div id="upload-status"></div>
+
+            </section>
+
+
+            <!-- メディア一覧 -->
+
+            <section class="media-section">
+
+                <div class="section-header">
+
+                    <h2>
+                        メディア
+                    </h2>
+
+                    <select id="media-sort" aria-label="メディアの並び順">
+                        <option value="date-desc">
+                            撮影日時が新しい順
+                        </option>
+
+                        <option value="date-asc">
+                            撮影日時が古い順
+                        </option>
+
+                        <option value="name-asc">
+                            名前順
+                        </option>
+
+                        <option value="name-desc">
+                            名前逆順
+                        </option>
+
+                        <option value="size-desc">
+                            サイズが大きい順
+                        </option>
+
+                        <option value="size-asc">
+                            サイズが小さい順
+                        </option>
+                    </select>
+
+                </div>
+
+                <div id="media-list"></div>
+
+            </section>
+
 
         </section>
 
 
-        <!-- アップロード -->
+        <!-- ================================
+         ゴミ箱
+    ================================= -->
 
-        <section id="upload-section">
+        <section id="trash-view">
 
-            <div class="upload-area">
+            <div id="trash-header">
 
-                <div class="upload-icon">
-                    ↑
-                </div>
+                <button id="back-from-trash-button" class="secondary-button">
+                    ← 戻る
+                </button>
 
-                <div class="upload-content">
 
-                    <strong>
-                        写真・動画を追加
-                    </strong>
+                <div class="trash-title">
+
+                    <h2>
+                        ゴミ箱
+                    </h2>
 
                     <span>
-                        ここにファイルを選択してください
+                        削除したファイル
                     </span>
 
                 </div>
 
 
-                <input
-                    type="file"
-                    id="file-input"
-                    accept="image/*,video/*"
-                    multiple
-                >
-
-
-                <button
-                    id="upload-button"
-                    class="primary-button"
-                >
-                    アップロード
+                <button id="empty-trash-button">
+                    ゴミ箱を空にする
                 </button>
 
             </div>
 
 
-            <div id="upload-status"></div>
+            <div id="trash-list"></div>
 
         </section>
 
-
-        <!-- メディア一覧 -->
-
-        <section class="media-section">
-
-            <div class="section-header">
-
-                <h2>
-                    メディア
-                </h2>
-
-            </div>
-
-
-            <div id="media-list"></div>
-
-        </section>
-
-
-    </section>
+    </main>
 
 
     <!-- ================================
-         ゴミ箱
-    ================================= -->
-
-    <section id="trash-view">
-
-        <div id="trash-header">
-
-            <button
-                id="back-from-trash-button"
-                class="secondary-button"
-            >
-                ← 戻る
-            </button>
-
-
-            <div class="trash-title">
-
-                <h2>
-                    ゴミ箱
-                </h2>
-
-                <span>
-                    削除したファイル
-                </span>
-
-            </div>
-
-
-            <button
-                id="empty-trash-button"
-            >
-                ゴミ箱を空にする
-            </button>
-
-        </div>
-
-
-        <div id="trash-list"></div>
-
-    </section>
-
-</main>
-
-
-<!-- ================================
      メディアビューア
 ================================= -->
 
-<div
-    id="media-modal"
-    class="modal"
->
+    <div id="media-modal" class="modal">
 
-    <button
-        id="modal-close"
-        class="modal-close"
-    >
-        ×
-    </button>
+        <button id="modal-close" class="modal-close">
+            ×
+        </button>
 
 
-    <div id="modal-content"></div>
+        <div id="modal-content"></div>
 
-</div>
+    </div>
 
 
-<script
-    type="module"
-    src="js/main.js"
-></script>
+    <script type="module" src="js/main.js"></script>
 
 </body>
 

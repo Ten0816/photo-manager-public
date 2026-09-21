@@ -23,10 +23,20 @@ const router = express.Router();
 /**
  * メディア一覧取得
  *
- * GET /api/media?path=...&page=...&limit=...
+ * GET /api/media?path=...&page=...&limit=...&sort=...
+ *
+ * sort:
+ *   date-desc  撮影日時 新しい順
+ *   date-asc   撮影日時 古い順
+ *   name-asc   名前順
+ *   name-desc  名前逆順
+ *   size-desc  サイズ 大きい順
+ *   size-asc   サイズ 小さい順
  */
 router.get("/", async (req, res) => {
+
     try {
+
         const page =
             parseInt(
                 req.query.page
@@ -40,27 +50,98 @@ router.get("/", async (req, res) => {
         const relativePath =
             req.query.path || "";
 
+        const sort =
+            req.query.sort ||
+            "date-desc";
+
+
         if (
             page < 1 ||
             limit < 1
         ) {
+
             return res.status(400).json({
                 error:
                     "Invalid page or limit"
             });
+
         }
+
 
         getSafeMediaPath(
             relativePath
         );
 
+
+        /*
+         * ソート条件
+         *
+         * sortを直接SQLへ入れない。
+         * 必ずホワイトリストから選択する。
+         */
+        const sortMap = {
+
+            "date-desc": `
+                taken_at IS NULL ASC,
+                taken_at DESC,
+                path ASC
+            `,
+
+            "date-asc": `
+                taken_at IS NULL ASC,
+                taken_at ASC,
+                path ASC
+            `,
+
+            "name-asc": `
+                path ASC
+            `,
+
+            "name-desc": `
+                path DESC
+            `,
+
+            "size-desc": `
+                file_size DESC,
+                path ASC
+            `,
+
+            "size-asc": `
+                file_size ASC,
+                path ASC
+            `
+
+        };
+
+
+        if (!sortMap[sort]) {
+
+            return res.status(400).json({
+                error:
+                    "Invalid sort option"
+            });
+
+        }
+
+
+        const orderBy =
+            sortMap[sort];
+
+
         const offset =
             (page - 1) * limit;
+
 
         let media;
         let total;
 
+
+        // ============================
+        // ルートフォルダ
+        // ============================
+
         if (relativePath === "") {
+
             media =
                 db.prepare(`
                     SELECT
@@ -72,12 +153,14 @@ router.get("/", async (req, res) => {
                         taken_at
                     FROM media
                     WHERE instr(path, '/') = 0
-                    ORDER BY path
+                    ORDER BY
+                        ${orderBy}
                     LIMIT ? OFFSET ?
                 `).all(
                     limit,
                     offset
                 );
+
 
             total =
                 db.prepare(`
@@ -87,12 +170,19 @@ router.get("/", async (req, res) => {
                     WHERE instr(path, '/') = 0
                 `).get().count;
 
+
+        // ============================
+        // サブフォルダ
+        // ============================
+
         } else {
+
             const prefix =
                 relativePath + "/%";
 
             const deepPrefix =
                 relativePath + "/%/%";
+
 
             media =
                 db.prepare(`
@@ -106,7 +196,8 @@ router.get("/", async (req, res) => {
                     FROM media
                     WHERE path LIKE ?
                     AND path NOT LIKE ?
-                    ORDER BY path
+                    ORDER BY
+                        ${orderBy}
                     LIMIT ? OFFSET ?
                 `).all(
                     prefix,
@@ -114,6 +205,7 @@ router.get("/", async (req, res) => {
                     limit,
                     offset
                 );
+
 
             total =
                 db.prepare(`
@@ -126,26 +218,41 @@ router.get("/", async (req, res) => {
                     prefix,
                     deepPrefix
                 ).count;
+
         }
 
+
         res.json({
+
             media,
+
             page,
+
             limit,
+
             total,
+
+            sort,
+
             hasMore:
-                offset + media.length <
+                offset +
+                media.length <
                 total
+
         });
 
+
     } catch (error) {
+
         console.error(error);
 
         res.status(500).json({
             error:
                 "Failed to fetch media"
         });
+
     }
+
 });
 
 
