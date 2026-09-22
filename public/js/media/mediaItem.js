@@ -12,15 +12,6 @@ import {
     openViewer
 } from "../viewer.js";
 
-import {
-    renameMedia,
-    deleteMedia
-} from "./mediaActions.js";
-
-import {
-    downloadMedia
-} from "./mediaDownload.js";
-
 
 // ============================================================
 // メディア1件分のUI
@@ -171,116 +162,12 @@ export function createMediaItem(media) {
         media.path;
 
 
-    // --------------------------------------------------
-    // 名前変更
-    // --------------------------------------------------
-
-    const renameButton =
-        document.createElement("button");
-
-    renameButton.textContent =
-        "名前変更";
-
-    renameButton.addEventListener(
-        "click",
-        async event => {
-
-            event.stopPropagation();
-
-            if (isSelectionMode) {
-                return;
-            }
-
-            const renamed =
-                await renameMedia(
-                    media
-                );
-
-            if (renamed) {
-                const {
-                    refreshMedia
-                } = await import(
-                    "./media.js"
-                );
-
-                await refreshMedia();
-            }
-        }
-    );
-
-    const downloadButton =
-        document.createElement("button");
-
-    downloadButton.textContent =
-        "ダウンロード";
-
-    downloadButton.addEventListener(
-        "click",
-        async event => {
-
-            event.stopPropagation();
-
-            if (isSelectionMode) {
-                return;
-            }
-
-            await downloadMedia(
-                media
-            );
-        }
-    );
-
-
-    // --------------------------------------------------
-    // 削除
-    // --------------------------------------------------
-
-    const deleteButton =
-        document.createElement("button");
-
-    deleteButton.textContent =
-        "削除";
-
-    deleteButton.addEventListener(
-        "click",
-        async event => {
-
-            event.stopPropagation();
-
-            if (isSelectionMode) {
-                return;
-            }
-
-            const deleted =
-                await deleteMedia(
-                    media
-                );
-
-            if (deleted) {
-                item.remove();
-            }
-        }
-    );
-
-
     item.appendChild(
         preview
     );
 
     item.appendChild(
         name
-    );
-
-    item.appendChild(
-        downloadButton
-    );
-
-    item.appendChild(
-        renameButton
-    );
-
-    item.appendChild(
-        deleteButton
     );
 
 
