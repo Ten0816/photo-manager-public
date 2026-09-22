@@ -9,7 +9,8 @@ import {
 } from "./media/mediaDownload.js";
 
 import {
-  renameMedia
+  renameMedia,
+  deleteMedia
 } from "./media/mediaActions.js";
 
 
@@ -258,7 +259,7 @@ function handleViewerHistory(event) {
     state &&
     state.viewer &&
     state.viewerHistoryKey ===
-      viewerHistoryKey
+    viewerHistoryKey
   ) {
 
     const mediaId =
@@ -300,7 +301,7 @@ function handleViewerHistory(event) {
     state &&
     state.viewerBase &&
     state.viewerHistoryKey ===
-      viewerHistoryKey
+    viewerHistoryKey
   ) {
 
     closeModal(false);
@@ -558,7 +559,7 @@ export function renderViewer() {
   if (
     currentViewerIndex >= 0 &&
     currentViewerIndex <
-      viewerMediaList.length - 1
+    viewerMediaList.length - 1
   ) {
 
     const nextButton =
@@ -732,6 +733,50 @@ function renderViewerActions() {
     }
   );
 
+  // ========================================================
+  // 削除
+  // ========================================================
+
+  const deleteButton =
+    document.createElement("button");
+
+
+  deleteButton.type =
+    "button";
+
+
+  deleteButton.textContent =
+    "🗑 削除";
+
+
+  deleteButton.addEventListener(
+    "click",
+    async event => {
+
+      event.stopPropagation();
+
+
+      if (!currentViewerMedia) {
+        return;
+      }
+
+
+      const success =
+        await deleteMedia(
+          currentViewerMedia
+        );
+
+
+      if (!success) {
+        return;
+      }
+
+
+      // 削除後は一覧に戻る
+      closeModal();
+    }
+  );
+
 
   menu.appendChild(
     downloadButton
@@ -740,6 +785,11 @@ function renderViewerActions() {
 
   menu.appendChild(
     renameButton
+  );
+
+
+  menu.appendChild(
+    deleteButton
   );
 
 
@@ -778,7 +828,7 @@ function renderViewerActions() {
           event.target
         ) &&
         event.target !==
-          actionsButton
+        actionsButton
       ) {
 
         menu.hidden =
@@ -887,11 +937,10 @@ function renderMediaInfo() {
       <div>
         <strong>種類</strong>
         <span>
-          ${
-            info.type === "image"
-              ? "画像"
-              : "動画"
-          }
+          ${info.type === "image"
+        ? "画像"
+        : "動画"
+      }
         </span>
       </div>
     `;
@@ -954,7 +1003,7 @@ export function showPreviousMedia() {
 
   const media =
     viewerMediaList[
-      currentViewerIndex
+    currentViewerIndex
     ];
 
 
@@ -982,7 +1031,7 @@ export function showNextMedia() {
   if (
     currentViewerIndex < 0 ||
     currentViewerIndex >=
-      viewerMediaList.length - 1
+    viewerMediaList.length - 1
   ) {
     return;
   }
@@ -993,7 +1042,7 @@ export function showNextMedia() {
 
   const media =
     viewerMediaList[
-      currentViewerIndex
+    currentViewerIndex
     ];
 
 
