@@ -383,6 +383,15 @@ async function emptyTrash() {
  * ゴミ箱を開く
  */
 async function openTrash() {
+
+    history.pushState(
+        {
+            view: "trash"
+        },
+        "",
+        "#trash"
+    );
+
     normalView.style.display =
         "none";
 
@@ -397,6 +406,7 @@ async function openTrash() {
  * ゴミ箱を閉じる
  */
 async function closeTrash() {
+
     trashView.style.display =
         "none";
 
@@ -445,6 +455,7 @@ function formatDeletedAt(
  * ゴミ箱イベント初期化
  */
 export function initTrash() {
+
     trashButton.addEventListener(
         "click",
         openTrash
@@ -452,12 +463,58 @@ export function initTrash() {
 
     backFromTrashButton.addEventListener(
         "click",
-        closeTrash
+        () => {
+            history.back();
+        }
     );
 
     emptyTrashButton.addEventListener(
         "click",
         emptyTrash
+    );
+
+
+    /*
+     * ブラウザの戻る・進む
+     */
+    window.addEventListener(
+        "popstate",
+        async event => {
+
+            const state =
+                event.state;
+
+
+            /*
+             * ゴミ箱へ移動した場合
+             */
+            if (
+                state?.view === "trash"
+            ) {
+
+                normalView.style.display =
+                    "none";
+
+                trashView.style.display =
+                    "block";
+
+                await loadTrash();
+
+                return;
+            }
+
+
+            /*
+             * ゴミ箱から通常画面へ戻った場合
+             */
+            if (
+                trashView.style.display !==
+                "none"
+            ) {
+
+                await closeTrash();
+            }
+        }
     );
 
 

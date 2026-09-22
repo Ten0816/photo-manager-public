@@ -145,7 +145,14 @@ export async function renameMedia(
         }
 
 
-        return true;
+        return {
+            oldPath: media.path,
+            newPath:
+                media.path.substring(
+                    0,
+                    media.path.lastIndexOf("/") + 1
+                ) + newName
+        };
 
     } catch (error) {
 

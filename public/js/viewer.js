@@ -717,19 +717,36 @@ function renderViewerActions() {
       }
 
 
-      const success =
+      const result =
         await renameMedia(
           currentViewerMedia
         );
 
-
-      if (!success) {
+      if (!result) {
         return;
       }
 
+      currentViewerMedia.path =
+        result.newPath;
 
-      // 名前変更後は一覧に戻る
-      closeModal();
+      const currentItem =
+        viewerMediaList.find(
+          item =>
+            item.id === currentViewerMedia.id
+        );
+
+      if (currentItem) {
+        currentItem.path =
+          result.newPath;
+      }
+
+      currentViewerMediaInfo = null;
+
+      menu.hidden = true;
+
+      await loadViewerMedia(
+        currentViewerMedia
+      );
     }
   );
 

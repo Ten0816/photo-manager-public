@@ -399,6 +399,17 @@ export async function deleteFolder(folder) {
  * フォルダを開く
  */
 export function openFolder(folderPath) {
+
+    history.pushState(
+        {
+            view: "folder",
+            folder: folderPath
+        },
+        "",
+        "#folder=" +
+        encodeURIComponent(folderPath)
+    );
+
     setCurrentFolder(
         folderPath
     );
@@ -412,6 +423,7 @@ export function openFolder(folderPath) {
  * 親フォルダへ移動
  */
 export function openParentFolder() {
+
     if (!currentFolder) {
         return;
     }
@@ -421,8 +433,21 @@ export function openParentFolder() {
 
     parts.pop();
 
+    const parentPath =
+        parts.join("/");
+
+    history.pushState(
+        {
+            view: "folder",
+            folder: parentPath
+        },
+        "",
+        "#folder=" +
+        encodeURIComponent(parentPath)
+    );
+
     setCurrentFolder(
-        parts.join("/")
+        parentPath
     );
 
     loadFolders();
@@ -506,6 +531,16 @@ export function updateBreadcrumb() {
     rootButton.addEventListener(
         "click",
         () => {
+
+            history.pushState(
+                {
+                    view: "folder",
+                    folder: ""
+                },
+                "",
+                "#folder="
+            );
+
             setCurrentFolder("");
 
             loadFolders();
@@ -558,6 +593,17 @@ export function updateBreadcrumb() {
         button.addEventListener(
             "click",
             () => {
+
+                history.pushState(
+                    {
+                        view: "folder",
+                        folder: targetPath
+                    },
+                    "",
+                    "#folder=" +
+                    encodeURIComponent(targetPath)
+                );
+
                 setCurrentFolder(
                     targetPath
                 );
@@ -597,5 +643,52 @@ export function initFolderEvents() {
     createFolderButton.addEventListener(
         "click",
         createFolder
+    );
+
+
+    /*
+     * 初期状態を履歴に登録
+     */
+    if (!history.state) {
+
+        history.replaceState(
+            {
+                view: "folder",
+                folder: currentFolder
+            },
+            "",
+            "#folder=" +
+            encodeURIComponent(currentFolder)
+        );
+    }
+
+
+    /*
+     * ブラウザの戻る・進む
+     */
+    window.addEventListener(
+        "popstate",
+        async event => {
+
+            const state =
+                event.state;
+
+            /*
+             * フォルダ履歴の場合
+             */
+            if (
+                state?.view === "folder"
+            ) {
+
+                setCurrentFolder(
+                    state.folder || ""
+                );
+
+                await loadFolders();
+                await refreshMedia();
+
+                return;
+            }
+        }
     );
 }
