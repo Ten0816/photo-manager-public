@@ -4,6 +4,15 @@ import {
   modalClose
 } from "./dom.js";
 
+import {
+  downloadMedia
+} from "./media/mediaDownload.js";
+
+import {
+  renameMedia
+} from "./media/mediaActions.js";
+
+
 let currentViewerMedia = null;
 
 let currentViewerMediaInfo = null;
@@ -16,6 +25,9 @@ let touchStartX = 0;
 
 let touchStartY = 0;
 
+// Viewerを開いたときの履歴状態
+let viewerHistoryKey = null;
+
 
 /**
  * メディアビューアを初期化
@@ -25,8 +37,11 @@ export function initViewer() {
   // 閉じるボタン
   modalClose.addEventListener(
     "click",
-    closeModal
+    () => {
+      closeModal();
+    }
   );
+
 
   // モーダル背景をクリックしたら閉じる
   modal.addEventListener(
@@ -41,6 +56,7 @@ export function initViewer() {
     }
   );
 
+
   // Escapeキーで閉じる
   document.addEventListener(
     "keydown",
@@ -53,6 +69,14 @@ export function initViewer() {
       }
     }
   );
+
+
+  // ブラウザの戻る・進む
+  window.addEventListener(
+    "popstate",
+    handleViewerHistory
+  );
+
 
   // スワイプ開始
   modalContent.addEventListener(
@@ -76,6 +100,7 @@ export function initViewer() {
     }
   );
 
+
   // スワイプ終了
   modalContent.addEventListener(
     "touchend",
@@ -92,7 +117,6 @@ export function initViewer() {
 
       const touchEndY =
         event.changedTouches[0].clientY;
-
 
       const deltaX =
         touchEndX - touchStartX;
@@ -150,25 +174,143 @@ export function openViewer(media) {
     .map(item => item.mediaData)
     .filter(Boolean);
 
+
   currentViewerIndex =
     viewerMediaList.findIndex(
       item => item.id === media.id
     );
 
+
   // 念のため見つからなかった場合
   if (currentViewerIndex === -1) {
+
     viewerMediaList = [media];
+
     currentViewerIndex = 0;
   }
 
+
   currentViewerMedia = media;
 
-  modal.classList.add("active");
+
+  // Viewer専用の履歴キーを作成
+  viewerHistoryKey =
+    "viewer-" + Date.now();
+
+
+  // 現在の一覧ページの履歴に
+  // Viewerの基準となる情報を保存
+  history.replaceState(
+    {
+      viewerBase: true,
+      viewerHistoryKey
+    },
+    "",
+    window.location.pathname
+  );
+
+
+  // Viewerを開いた履歴を作成
+  history.pushState(
+    {
+      viewer: true,
+      mediaId: media.id,
+      viewerHistoryKey
+    },
+    "",
+    "?media=" + media.id
+  );
+
+
+  modal.classList.add(
+    "active"
+  );
+
 
   loadViewerMedia(media);
 
+
   // 背景ページをスクロールさせない
-  document.body.style.overflow = "hidden";
+  document.body.style.overflow =
+    "hidden";
+}
+
+
+/**
+ * ブラウザの戻る・進むを処理
+ */
+function handleViewerHistory(event) {
+
+  // Viewerを開いていない状態
+  if (
+    !modal.classList.contains("active")
+  ) {
+    return;
+  }
+
+
+  const state =
+    event.state;
+
+
+  // Viewerの履歴
+  if (
+    state &&
+    state.viewer &&
+    state.viewerHistoryKey ===
+      viewerHistoryKey
+  ) {
+
+    const mediaId =
+      state.mediaId;
+
+
+    const index =
+      viewerMediaList.findIndex(
+        media =>
+          media.id === mediaId
+      );
+
+
+    // 現在の一覧に存在しないメディア
+    if (index === -1) {
+
+      closeModal(false);
+
+      return;
+    }
+
+
+    currentViewerIndex =
+      index;
+
+
+    const media =
+      viewerMediaList[index];
+
+
+    loadViewerMedia(media);
+
+    return;
+  }
+
+
+  // Viewerの基準履歴まで戻った
+  if (
+    state &&
+    state.viewerBase &&
+    state.viewerHistoryKey ===
+      viewerHistoryKey
+  ) {
+
+    closeModal(false);
+
+    return;
+  }
+
+
+  // Viewerを開く前の履歴まで戻った
+  closeModal(false);
 }
 
 
@@ -185,12 +327,15 @@ async function fetchMediaInfo(media) {
         encodeURIComponent(media.path)
       );
 
+
     if (!response.ok) {
+
       throw new Error(
         "Media info request failed: " +
         response.status
       );
     }
+
 
     return await response.json();
 
@@ -210,13 +355,20 @@ async function fetchMediaInfo(media) {
  * ビューアのメディアを切り替える
  */
 async function loadViewerMedia(media) {
-  currentViewerMedia = media;
-  currentViewerMediaInfo = null;
+
+  currentViewerMedia =
+    media;
+
+  currentViewerMediaInfo =
+    null;
+
 
   renderViewer();
 
+
   const info =
     await fetchMediaInfo(media);
+
 
   if (
     currentViewerMedia?.id !== media.id
@@ -224,7 +376,10 @@ async function loadViewerMedia(media) {
     return;
   }
 
-  currentViewerMediaInfo = info;
+
+  currentViewerMediaInfo =
+    info;
+
 
   renderMediaInfo();
 }
@@ -239,14 +394,33 @@ export function renderViewer() {
     return;
   }
 
-  modalContent.innerHTML = "";
+
+  modalContent.innerHTML =
+    "";
+
 
   // 前回作成したナビゲーションボタンを削除
   modal
-    .querySelectorAll(".viewer-button")
+    .querySelectorAll(
+      ".viewer-button"
+    )
     .forEach(button => {
       button.remove();
     });
+
+
+  // 前回作成した操作メニューを削除
+  modal
+    .querySelectorAll(
+      ".viewer-actions-button, .viewer-actions-menu"
+    )
+    .forEach(element => {
+      element.remove();
+    });
+
+
+  // 操作メニュー
+  renderViewerActions();
 
 
   const media =
@@ -262,47 +436,62 @@ export function renderViewer() {
   // メディア本体
   // ========================================================
 
-  if (media.type === "image") {
+  if (
+    media.type === "image"
+  ) {
 
     const image =
       document.createElement("img");
 
+
     image.src =
       mediaUrl;
+
 
     image.alt =
       media.path;
 
+
     image.draggable =
       false;
+
 
     modalContent.appendChild(
       image
     );
 
-  } else if (media.type === "video") {
+  } else if (
+    media.type === "video"
+  ) {
 
     const video =
       document.createElement("video");
 
+
     video.src =
       mediaUrl;
+
 
     video.controls =
       true;
 
+
     video.autoplay =
       true;
 
+
     video.playsInline =
       true;
+
 
     modalContent.appendChild(
       video
     );
 
+
     video.play().catch(
       error => {
+
         console.error(
           "Video playback failed:",
           error
@@ -323,21 +512,27 @@ export function renderViewer() {
   // 前へ
   // ========================================================
 
-  if (currentViewerIndex > 0) {
+  if (
+    currentViewerIndex > 0
+  ) {
 
     const previousButton =
       document.createElement("button");
 
+
     previousButton.className =
       "viewer-button viewer-previous";
 
+
     previousButton.textContent =
       "‹";
+
 
     previousButton.setAttribute(
       "aria-label",
       "前の写真"
     );
+
 
     previousButton.addEventListener(
       "click",
@@ -348,6 +543,7 @@ export function renderViewer() {
         showPreviousMedia();
       }
     );
+
 
     modal.appendChild(
       previousButton
@@ -368,16 +564,20 @@ export function renderViewer() {
     const nextButton =
       document.createElement("button");
 
+
     nextButton.className =
       "viewer-button viewer-next";
 
+
     nextButton.textContent =
       "›";
+
 
     nextButton.setAttribute(
       "aria-label",
       "次の写真"
     );
+
 
     nextButton.addEventListener(
       "click",
@@ -389,10 +589,203 @@ export function renderViewer() {
       }
     );
 
+
     modal.appendChild(
       nextButton
     );
   }
+}
+
+
+/**
+ * Viewerの操作メニューを描画
+ */
+function renderViewerActions() {
+
+  // ========================================================
+  // 「⋯」ボタン
+  // ========================================================
+
+  const actionsButton =
+    document.createElement("button");
+
+
+  actionsButton.type =
+    "button";
+
+
+  actionsButton.className =
+    "viewer-actions-button";
+
+
+  actionsButton.textContent =
+    "⋯";
+
+
+  actionsButton.setAttribute(
+    "aria-label",
+    "メディア操作"
+  );
+
+
+  modal.appendChild(
+    actionsButton
+  );
+
+
+  // ========================================================
+  // 操作メニュー
+  // ========================================================
+
+  const menu =
+    document.createElement("div");
+
+
+  menu.className =
+    "viewer-actions-menu";
+
+
+  menu.hidden =
+    true;
+
+
+  // ========================================================
+  // ダウンロード
+  // ========================================================
+
+  const downloadButton =
+    document.createElement("button");
+
+
+  downloadButton.type =
+    "button";
+
+
+  downloadButton.textContent =
+    "↓ ダウンロード";
+
+
+  downloadButton.addEventListener(
+    "click",
+    async event => {
+
+      event.stopPropagation();
+
+
+      if (!currentViewerMedia) {
+        return;
+      }
+
+
+      await downloadMedia(
+        currentViewerMedia
+      );
+
+
+      menu.hidden =
+        true;
+    }
+  );
+
+
+  // ========================================================
+  // 名前変更
+  // ========================================================
+
+  const renameButton =
+    document.createElement("button");
+
+
+  renameButton.type =
+    "button";
+
+
+  renameButton.textContent =
+    "✎ 名前変更";
+
+
+  renameButton.addEventListener(
+    "click",
+    async event => {
+
+      event.stopPropagation();
+
+
+      if (!currentViewerMedia) {
+        return;
+      }
+
+
+      const success =
+        await renameMedia(
+          currentViewerMedia
+        );
+
+
+      if (!success) {
+        return;
+      }
+
+
+      // 名前変更後は一覧に戻る
+      closeModal();
+    }
+  );
+
+
+  menu.appendChild(
+    downloadButton
+  );
+
+
+  menu.appendChild(
+    renameButton
+  );
+
+
+  modal.appendChild(
+    menu
+  );
+
+
+  // ========================================================
+  // メニューボタン
+  // ========================================================
+
+  actionsButton.addEventListener(
+    "click",
+    event => {
+
+      event.stopPropagation();
+
+
+      menu.hidden =
+        !menu.hidden;
+    }
+  );
+
+
+  // ========================================================
+  // メニュー外をクリックしたら閉じる
+  // ========================================================
+
+  document.addEventListener(
+    "click",
+    event => {
+
+      if (
+        !menu.contains(
+          event.target
+        ) &&
+        event.target !==
+          actionsButton
+      ) {
+
+        menu.hidden =
+          true;
+      }
+    }
+  );
 }
 
 
@@ -406,6 +799,7 @@ function renderMediaInfo() {
       ".media-details"
     );
 
+
   if (existing) {
     existing.remove();
   }
@@ -414,6 +808,7 @@ function renderMediaInfo() {
   const detailsContainer =
     document.createElement("div");
 
+
   detailsContainer.className =
     "media-details";
 
@@ -421,11 +816,14 @@ function renderMediaInfo() {
   const detailsButton =
     document.createElement("button");
 
+
   detailsButton.className =
     "media-details-toggle";
 
+
   detailsButton.type =
     "button";
+
 
   detailsButton.innerHTML =
     "▼ 詳細情報";
@@ -434,8 +832,10 @@ function renderMediaInfo() {
   const mediaInfo =
     document.createElement("div");
 
+
   mediaInfo.className =
     "media-info";
+
 
   mediaInfo.hidden =
     true;
@@ -504,11 +904,14 @@ function renderMediaInfo() {
 
       event.stopPropagation();
 
+
       const isOpen =
         !mediaInfo.hidden;
 
+
       mediaInfo.hidden =
         isOpen;
+
 
       detailsButton.innerHTML =
         isOpen
@@ -522,9 +925,11 @@ function renderMediaInfo() {
     detailsButton
   );
 
+
   detailsContainer.appendChild(
     mediaInfo
   );
+
 
   modalContent.appendChild(
     detailsContainer
@@ -536,16 +941,34 @@ function renderMediaInfo() {
  * 前のメディアを表示
  */
 export function showPreviousMedia() {
-  if (currentViewerIndex <= 0) {
+
+  if (
+    currentViewerIndex <= 0
+  ) {
     return;
   }
 
+
   currentViewerIndex--;
+
 
   const media =
     viewerMediaList[
-    currentViewerIndex
+      currentViewerIndex
     ];
+
+
+  // 履歴に追加
+  history.pushState(
+    {
+      viewer: true,
+      mediaId: media.id,
+      viewerHistoryKey
+    },
+    "",
+    "?media=" + media.id
+  );
+
 
   loadViewerMedia(media);
 }
@@ -555,20 +978,36 @@ export function showPreviousMedia() {
  * 次のメディアを表示
  */
 export function showNextMedia() {
+
   if (
     currentViewerIndex < 0 ||
     currentViewerIndex >=
-    viewerMediaList.length - 1
+      viewerMediaList.length - 1
   ) {
     return;
   }
 
+
   currentViewerIndex++;
+
 
   const media =
     viewerMediaList[
-    currentViewerIndex
+      currentViewerIndex
     ];
+
+
+  // 履歴に追加
+  history.pushState(
+    {
+      viewer: true,
+      mediaId: media.id,
+      viewerHistoryKey
+    },
+    "",
+    "?media=" + media.id
+  );
+
 
   loadViewerMedia(media);
 }
@@ -586,6 +1025,7 @@ export function formatDateTime(
     dateValue === undefined ||
     dateValue === ""
   ) {
+
     return "記録されていません";
   }
 
@@ -599,6 +1039,7 @@ export function formatDateTime(
       date.getTime()
     )
   ) {
+
     return String(dateValue);
   }
 
@@ -620,16 +1061,23 @@ export function formatFileSize(
     !Number.isFinite(bytes) ||
     bytes < 0
   ) {
+
     return "不明";
   }
 
 
-  if (bytes < 1024) {
+  if (
+    bytes < 1024
+  ) {
+
     return bytes + " B";
   }
 
 
-  if (bytes < 1024 * 1024) {
+  if (
+    bytes < 1024 * 1024
+  ) {
+
     return (
       (bytes / 1024).toFixed(1) +
       " KB"
@@ -637,7 +1085,11 @@ export function formatFileSize(
   }
 
 
-  if (bytes < 1024 * 1024 * 1024) {
+  if (
+    bytes <
+    1024 * 1024 * 1024
+  ) {
+
     return (
       (bytes / (1024 * 1024)).toFixed(1) +
       " MB"
@@ -660,39 +1112,96 @@ function escapeHtml(
 ) {
 
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
 
 
 /**
  * モーダルを閉じる
  */
-export function closeModal() {
+export function closeModal(
+  updateHistory = true
+) {
 
-  modalContent.innerHTML = "";
+  // ×、Escape、背景クリックなど
+  // ユーザー操作による閉じる処理
+  if (updateHistory) {
+
+    // URLだけ一覧状態に戻す
+    history.replaceState(
+      null,
+      "",
+      window.location.pathname
+    );
+  }
+
+
+  modalContent.innerHTML =
+    "";
+
 
   modal
-    .querySelectorAll(".viewer-button")
+    .querySelectorAll(
+      ".viewer-button"
+    )
     .forEach(button => {
       button.remove();
     });
+
+
+  modal
+    .querySelectorAll(
+      ".viewer-actions-button, .viewer-actions-menu"
+    )
+    .forEach(element => {
+      element.remove();
+    });
+
 
   modal.classList.remove(
     "active"
   );
 
+
   document.body.style.overflow =
     "";
 
-  currentViewerMedia = null;
 
-  currentViewerMediaInfo = null;
+  currentViewerMedia =
+    null;
 
-  currentViewerIndex = -1;
 
-  viewerMediaList = [];
+  currentViewerMediaInfo =
+    null;
+
+
+  currentViewerIndex =
+    -1;
+
+
+  viewerMediaList =
+    [];
+
+
+  viewerHistoryKey =
+    null;
 }

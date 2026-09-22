@@ -369,3 +369,115 @@
         max-height: 88vh;
     }
 }
+
+
+/* ========================================================
+   Viewer 操作メニュー
+   ======================================================== */
+
+.viewer-actions-button {
+    position: fixed;
+
+    top: 16px;
+    left: 16px;
+
+    z-index: 1001;
+
+    width: 40px;
+    height: 40px;
+
+    padding: 0;
+
+    border: none;
+    border-radius: 50%;
+
+    background-color: rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+
+    font-size: 26px;
+    line-height: 40px;
+
+    cursor: pointer;
+}
+
+.viewer-actions-button:hover {
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+
+/* ========================================================
+   操作メニュー
+   ======================================================== */
+
+.viewer-actions-menu {
+    position: fixed;
+
+    top: 62px;
+    left: 16px;
+
+    z-index: 1002;
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 150px;
+
+    padding: 4px;
+
+    border-radius: 8px;
+
+    background-color: rgba(30, 30, 30, 0.95);
+
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.viewer-actions-menu[hidden] {
+    display: none;
+}
+
+.viewer-actions-menu button {
+    padding: 10px 14px;
+
+    border: none;
+    border-radius: 5px;
+
+    background: transparent;
+    color: #ffffff;
+
+    font-size: 14px;
+
+    text-align: left;
+
+    cursor: pointer;
+}
+
+.viewer-actions-menu button:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+
+/* ========================================================
+   スマートフォン
+   ======================================================== */
+
+@media (max-width: 599px) {
+
+    .viewer-actions-button {
+        top: 10px;
+        left: 10px;
+
+        width: 38px;
+        height: 38px;
+
+        font-size: 24px;
+        line-height: 38px;
+    }
+
+    .viewer-actions-menu {
+        top: 56px;
+        left: 10px;
+
+        min-width: 145px;
+    }
+}
