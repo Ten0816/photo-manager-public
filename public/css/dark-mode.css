@@ -1,0 +1,221 @@
+/* ================================
+   ナイトモード
+================================ */
+
+body.dark-mode {
+    background: #121212;
+    color: #e8e8e8;
+}
+
+
+/* ================================
+   ヘッダー
+================================ */
+
+body.dark-mode .app-header {
+    background: #1b1b1b;
+    border-bottom-color: #333;
+}
+
+
+/* ================================
+   セクション
+================================ */
+
+body.dark-mode .media-section,
+body.dark-mode #folder-section,
+body.dark-mode #upload-section {
+    color: #e8e8e8;
+}
+
+
+/* ================================
+   フォルダ
+================================ */
+
+body.dark-mode .folder-item {
+    background: #1e1e1e;
+    border-color: #333;
+}
+
+body.dark-mode .folder-open-button {
+    background: #1e1e1e;
+    color: #d0d0d0;
+    border-color: #333;
+}
+
+body.dark-mode .folder-name {
+    color: #d0d0d0;
+}
+
+body.dark-mode .folder-menu-button {
+    background: #1e1e1e;
+    color: #d0d0d0;
+    border-color: #333;
+}
+
+body.dark-mode .folder-menu {
+    background: #242424;
+    border-color: #444;
+}
+
+body.dark-mode .folder-menu-item {
+    background: #242424;
+    color: #d0d0d0;
+}
+
+body.dark-mode .folder-menu-item:hover {
+    background: #333;
+}
+
+body.dark-mode #folder-list {
+    color: #e8e8e8;
+}
+
+
+/* ================================
+   メディア
+================================ */
+
+body.dark-mode .media-item {
+    background: #1e1e1e;
+    border-color: #333;
+}
+
+body.dark-mode .media-name {
+    color: #e8e8e8;
+}
+
+
+/* ================================
+   アップロード
+================================ */
+
+body.dark-mode .upload-area {
+    background: #1e1e1e;
+    border-color: #444;
+}
+
+body.dark-mode #upload-status {
+    color: #bdbdbd;
+}
+
+
+/* ================================
+   入力・セレクト
+================================ */
+
+body.dark-mode input,
+body.dark-mode select {
+    background: #1e1e1e;
+    color: #e8e8e8;
+    border-color: #444;
+}
+
+body.dark-mode #media-sort option {
+    background: #1e1e1e;
+    color: #d0d0d0;
+}
+
+
+/* ================================
+   ボタン
+================================ */
+
+body.dark-mode .secondary-button {
+    background: #2a2a2a;
+    color: #e8e8e8;
+    border-color: #444;
+}
+
+body.dark-mode .secondary-button:hover {
+    background: #353535;
+}
+
+body.dark-mode .primary-button {
+    background: #2a2a2a;
+    color: #ffffff;
+    border-color: #444;
+}
+
+body.dark-mode .primary-button:hover {
+    background: #353535;
+}
+
+body.dark-mode .danger-button {
+    background: #2a2a2a;
+    color: #ffffff;
+    border-color: #555;
+}
+
+body.dark-mode .danger-button:hover {
+    background: #383838;
+}
+
+
+/* ================================
+   選択ツールバー
+================================ */
+
+body.dark-mode .media-selection-toolbar {
+    background: #1b1b1b;
+    color: #e8e8e8;
+    border-color: #333;
+}
+
+
+/* ================================
+   パンくずリスト
+================================ */
+
+body.dark-mode .breadcrumb {
+    color: #bdbdbd;
+}
+
+body.dark-mode .breadcrumb button {
+    background: #1e1e1e;
+    color: #d0d0d0;
+    border-color: #333;
+}
+
+body.dark-mode .breadcrumb button:hover {
+    background: #2a2a2a;
+}
+
+
+/* ================================
+   見出し
+================================ */
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3 {
+    color: #e8e8e8;
+}
+
+
+/* ================================
+   テキスト
+================================ */
+
+body.dark-mode span,
+body.dark-mode label {
+    color: #d0d0d0;
+}
+
+/* ================================
+   メディア並び順
+================================ */
+
+body.dark-mode #media-sort {
+    background-color: #1e1e1e !important;
+    color: #d0d0d0 !important;
+    border-color: #444 !important;
+
+    color-scheme: dark;
+}
+
+body.dark-mode #media-sort option {
+    background-color: #1e1e1e;
+    color: #d0d0d0;
+}

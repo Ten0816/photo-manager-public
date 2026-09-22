@@ -24,6 +24,8 @@ import {
     initTrash
 } from "./trash.js";
 
+import "./theme.js";
+
 
 async function init() {
     initFolderEvents();
