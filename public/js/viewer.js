@@ -79,6 +79,40 @@ export function initViewer() {
   );
 
 
+  // Viewer操作メニューの外側をクリックしたら閉じる
+  document.addEventListener(
+    "click",
+    event => {
+
+      const menu =
+        modal.querySelector(
+          ".viewer-actions-menu"
+        );
+
+      const button =
+        modal.querySelector(
+          ".viewer-actions-button"
+        );
+
+      if (
+        !menu ||
+        !button
+      ) {
+        return;
+      }
+
+      if (
+        !menu.contains(
+          event.target
+        ) &&
+        event.target !== button
+      ) {
+        menu.hidden = true;
+      }
+    }
+  );
+
+
   // スワイプ開始
   modalContent.addEventListener(
     "touchstart",
@@ -316,73 +350,30 @@ function handleViewerHistory(event) {
 
 
 /**
- * メディア詳細情報を取得
- */
-async function fetchMediaInfo(media) {
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/media-info?path=" +
-        encodeURIComponent(media.path)
-      );
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        "Media info request failed: " +
-        response.status
-      );
-    }
-
-
-    return await response.json();
-
-  } catch (error) {
-
-    console.error(
-      "メディア詳細情報の取得に失敗しました:",
-      error
-    );
-
-    return null;
-  }
-}
-
-
-/**
  * ビューアのメディアを切り替える
+ *
+ * 詳細情報は /api/media で取得済みの
+ * DBデータをそのまま利用する。
  */
-async function loadViewerMedia(media) {
+function loadViewerMedia(media) {
 
   currentViewerMedia =
     media;
 
-  currentViewerMediaInfo =
-    null;
+
+  currentViewerMediaInfo = {
+    id: media.id,
+    path: media.path,
+    name: media.path.split("/").pop(),
+    type: media.type,
+    fileSize: media.file_size,
+    modifiedAt: media.modified_at,
+    takenAt: media.taken_at,
+    exif: null
+  };
 
 
   renderViewer();
-
-
-  const info =
-    await fetchMediaInfo(media);
-
-
-  if (
-    currentViewerMedia?.id !== media.id
-  ) {
-    return;
-  }
-
-
-  currentViewerMediaInfo =
-    info;
-
-
-  renderMediaInfo();
 }
 
 
@@ -722,12 +713,15 @@ function renderViewerActions() {
           currentViewerMedia
         );
 
+
       if (!result) {
         return;
       }
 
+
       currentViewerMedia.path =
         result.newPath;
+
 
       const currentItem =
         viewerMediaList.find(
@@ -735,20 +729,27 @@ function renderViewerActions() {
             item.id === currentViewerMedia.id
         );
 
+
       if (currentItem) {
         currentItem.path =
           result.newPath;
       }
 
-      currentViewerMediaInfo = null;
 
-      menu.hidden = true;
+      currentViewerMediaInfo =
+        null;
 
-      await loadViewerMedia(
+
+      menu.hidden =
+        true;
+
+
+      loadViewerMedia(
         currentViewerMedia
       );
     }
   );
+
 
   // ========================================================
   // 削除
@@ -828,29 +829,6 @@ function renderViewerActions() {
 
       menu.hidden =
         !menu.hidden;
-    }
-  );
-
-
-  // ========================================================
-  // メニュー外をクリックしたら閉じる
-  // ========================================================
-
-  document.addEventListener(
-    "click",
-    event => {
-
-      if (
-        !menu.contains(
-          event.target
-        ) &&
-        event.target !==
-        actionsButton
-      ) {
-
-        menu.hidden =
-          true;
-      }
     }
   );
 }
@@ -1020,7 +998,7 @@ export function showPreviousMedia() {
 
   const media =
     viewerMediaList[
-    currentViewerIndex
+      currentViewerIndex
     ];
 
 
@@ -1059,7 +1037,7 @@ export function showNextMedia() {
 
   const media =
     viewerMediaList[
-    currentViewerIndex
+      currentViewerIndex
     ];
 
 

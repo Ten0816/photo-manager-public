@@ -181,13 +181,6 @@ router.get(
         );
 
       /*
-       * ファイルが存在するか確認
-       */
-      await fs.access(
-        trashFilePath
-      );
-
-      /*
        * サムネイル保存先
        */
       const thumbnailPath =

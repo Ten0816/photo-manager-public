@@ -1,13 +1,7 @@
 const express = require("express");
-const exifr = require("exifr");
-const fs = require("fs/promises");
 const path = require("path");
 
 const db = require("../database");
-
-const {
-    getSafeMediaPath
-} = require("../utils/pathUtils");
 
 const router = express.Router();
 
@@ -22,11 +16,16 @@ router.get("/", async (req, res) => {
     const relativePath =
         req.query.path;
 
+
+    // ----------------------------
+    // パスチェック
+    // ----------------------------
+
     if (
-        typeof relativePath !==
-        "string" ||
+        typeof relativePath !== "string" ||
         !relativePath
     ) {
+
         return res.status(400).json({
             error:
                 "Media path is required"
@@ -36,9 +35,10 @@ router.get("/", async (req, res) => {
 
     try {
 
-        /*
-         * DBからメディア情報を取得
-         */
+        // ----------------------------
+        // DBからメディア情報を取得
+        // ----------------------------
+
         const media =
             db.prepare(`
                 SELECT
@@ -56,6 +56,7 @@ router.get("/", async (req, res) => {
 
 
         if (!media) {
+
             return res.status(404).json({
                 error:
                     "Media not found"
@@ -63,36 +64,11 @@ router.get("/", async (req, res) => {
         }
 
 
-        /*
-         * 実ファイルのパス
-         */
-        const filePath =
-            getSafeMediaPath(
-                relativePath
-            );
+        // ----------------------------
+        // 詳細情報を返す
+        // ----------------------------
 
-
-        /*
-         * ファイル存在確認
-         */
-        const stat =
-            await fs.stat(
-                filePath
-            );
-
-
-        if (!stat.isFile()) {
-            return res.status(400).json({
-                error:
-                    "Target is not a file"
-            });
-        }
-
-
-        /*
-         * 基本情報
-         */
-        const result = {
+        res.json({
 
             id:
                 media.id,
@@ -117,44 +93,10 @@ router.get("/", async (req, res) => {
             takenAt:
                 media.taken_at,
 
+            // 現在はEXIFをViewer表示時には取得しない
             exif:
                 null
-        };
-
-
-        /*
-         * 写真の場合のみEXIFを取得
-         */
-        if (
-            media.type ===
-            "image"
-        ) {
-
-            try {
-
-                result.exif =
-                    await exifr.parse(
-                        filePath
-                    );
-
-            } catch (error) {
-
-                console.warn(
-                    "EXIFの読み込みに失敗しました:",
-                    relativePath
-                );
-
-                console.warn(
-                    error.message
-                );
-
-            }
-        }
-
-
-        res.json(
-            result
-        );
+        });
 
 
     } catch (error) {
@@ -162,22 +104,10 @@ router.get("/", async (req, res) => {
         console.error(error);
 
 
-        if (
-            error.code ===
-            "ENOENT"
-        ) {
-            return res.status(404).json({
-                error:
-                    "Media file not found"
-            });
-        }
-
-
         res.status(500).json({
             error:
                 "Failed to fetch media information"
         });
-
     }
 
 });

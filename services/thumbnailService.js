@@ -4,8 +4,6 @@ const { execFile } = require("child_process");
 const { promisify } = require("util");
 
 const {
-    MEDIA_DIR,
-    THUMBNAIL_DIR,
     getSafeMediaPath,
     getThumbnailPath
 } = require("../utils/pathUtils");
@@ -13,14 +11,6 @@ const {
 const execFileAsync =
     promisify(execFile);
 
-async function ensureThumbnailDir() {
-    await fs.promises.mkdir(
-        THUMBNAIL_DIR,
-        {
-            recursive: true
-        }
-    );
-}
 
 /**
  * サムネイルのパスを取得
@@ -33,9 +23,15 @@ async function ensureThumbnailDir() {
  *   2026/photo.jpg
  *   2026/movie.jpg
  */
-function getThumbnailFilePath(relativePath) {
+function getThumbnailFilePath(
+    relativePath
+) {
+
     const parsed =
-        path.parse(relativePath);
+        path.parse(
+            relativePath
+        );
+
 
     const thumbnailRelativePath =
         path.join(
@@ -43,39 +39,44 @@ function getThumbnailFilePath(relativePath) {
             parsed.name + ".jpg"
         );
 
+
     return getThumbnailPath(
         thumbnailRelativePath
     );
 }
 
-async function createThumbnail(relativePath) {
-    await ensureThumbnailDir();
+
+async function createThumbnail(
+    relativePath
+) {
+
+    // ----------------------------
+    // 元ファイルの安全性を確認
+    // ----------------------------
 
     const sourcePath =
         getSafeMediaPath(
             relativePath
         );
 
+
+    // ----------------------------
+    // サムネイルのパスを取得
+    // ----------------------------
+
     const thumbnailPath =
         getThumbnailFilePath(
             relativePath
         );
 
-    await fs.promises.mkdir(
-        path.dirname(thumbnailPath),
-        {
-            recursive: true
-        }
-    );
 
-    // 既に存在する場合は再生成しない
+    // ----------------------------
+    // 既存サムネイルを確認
+    // ----------------------------
+
     try {
-        await fs.promises.access(
-            thumbnailPath
-        );
 
-        console.log(
-            "Thumbnail exists:",
+        await fs.promises.access(
             thumbnailPath
         );
 
@@ -85,48 +86,57 @@ async function createThumbnail(relativePath) {
         // サムネイルが存在しないので生成
     }
 
-    console.log(
-        "Creating thumbnail:",
-        sourcePath
+
+    // ----------------------------
+    // サムネイル保存先を作成
+    // ----------------------------
+
+    await fs.promises.mkdir(
+        path.dirname(
+            thumbnailPath
+        ),
+        {
+            recursive: true
+        }
     );
 
-    console.log(
-        "Thumbnail path:",
-        thumbnailPath
+
+    // ----------------------------
+    // サムネイル生成
+    // ----------------------------
+
+    await execFileAsync(
+        "ffmpeg",
+        [
+            "-y",
+
+            "-i",
+            sourcePath,
+
+            // 動画の場合は最初のフレームを使用
+            "-frames:v",
+            "1",
+
+            "-vf",
+            "scale='min(400,iw)':-1",
+
+            "-q:v",
+            "5",
+
+            "-update",
+            "1",
+
+            thumbnailPath
+        ]
     );
 
-    await execFileAsync("ffmpeg", [
-        "-y",
-
-        "-i",
-        sourcePath,
-
-        // 動画の場合は最初のフレームを使用
-        "-frames:v",
-        "1",
-
-        "-vf",
-        "scale='min(400,iw)':-1",
-
-        "-q:v",
-        "5",
-
-        "-update",
-        "1",
-
-        thumbnailPath
-    ]);
-
-    console.log(
-        "Thumbnail created:",
-        thumbnailPath
-    );
 
     return thumbnailPath;
 }
 
+
 module.exports = {
-    ensureThumbnailDir,
     createThumbnail,
-    getThumbnailPath: getThumbnailFilePath
+    getThumbnailPath:
+        getThumbnailFilePath
 };

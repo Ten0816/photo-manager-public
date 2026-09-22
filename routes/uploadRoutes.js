@@ -198,48 +198,91 @@ router.post("/", (req, res) => {
                             file.originalname
                         );
 
-                    await fs.copyFile(
-                        temporaryPath,
-                        destinationPath
-                    );
+                    let copied = false;
 
-                    await fs.unlink(
-                        temporaryPath
-                    );
-
-                    const stat =
-                        await fs.stat(
+                    try {
+                        await fs.copyFile(
+                            temporaryPath,
                             destinationPath
                         );
 
-                    const savedFileName =
-                        path.basename(
-                            destinationPath
+                        copied = true;
+
+                        const stat =
+                            await fs.stat(
+                                destinationPath
+                            );
+
+                        const savedFileName =
+                            path.basename(
+                                destinationPath
+                            );
+
+                        const mediaPath =
+                            path.join(
+                                relativePath,
+                                savedFileName
+                            );
+
+                        const mediaType =
+                            getMediaType(
+                                savedFileName
+                            );
+
+                        registerMedia.run(
+                            mediaPath,
+                            mediaType,
+                            stat.size,
+                            Math.floor(
+                                stat.mtimeMs
+                            )
                         );
 
-                    const mediaPath =
-                        path.join(
-                            relativePath,
-                            savedFileName
+                        uploadedFiles.push(
+                            mediaPath
                         );
 
-                    const mediaType =
-                        getMediaType(
-                            savedFileName
-                        );
+                    } catch (error) {
+                        /*
+                         * DB登録などに失敗した場合、
+                         * HDDへコピーしたファイルを削除して
+                         * DBとHDDの不整合を防ぐ。
+                         */
+                        if (copied) {
+                            try {
+                                await fs.unlink(
+                                    destinationPath
+                                );
+                            } catch (rollbackError) {
+                                console.error(
+                                    "Failed to rollback uploaded file:",
+                                    rollbackError
+                                );
+                            }
+                        }
 
-                    registerMedia.run(
-                        mediaPath,
-                        mediaType,
-                        stat.size,
-                        Math.floor(
-                            stat.mtimeMs
-                        )
-                    );
+                        throw error;
 
-                    uploadedFiles.push(
-                        mediaPath
-                    );
+                    } finally {
+                        /*
+                         * 一時ファイルは必ず削除
+                         */
+                        try {
+                            await fs.unlink(
+                                temporaryPath
+                            );
+                        } catch (cleanupError) {
+                            if (
+                                cleanupError.code !==
+                                "ENOENT"
+                            ) {
+                                console.error(
+                                    "Failed to delete temporary upload file:",
+                                    cleanupError
+                                );
+                            }
+                        }
+                    }
                 }
 
                 console.log(
