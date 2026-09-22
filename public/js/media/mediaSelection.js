@@ -2,7 +2,8 @@ import {
     selectedMediaIds,
     selectMedia,
     clearSelectedMedia,
-    isMediaSelected
+    isMediaSelected,
+    isSelectionMode
 } from "../state.js";
 
 import {
@@ -97,9 +98,13 @@ export function refreshMediaSelectionUI() {
 
             if (checkbox) {
 
-                checkbox.checked =
-                    selected;
-            }
+    checkbox.hidden =
+        !isSelectionMode;
+
+    checkbox.checked =
+        selected;
+
+}
 
 
             item.classList.toggle(

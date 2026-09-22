@@ -50,46 +50,22 @@ export function createMediaItem(media) {
     // 選択チェックボックス
     // --------------------------------------------------
 
-    const checkbox =
-        document.createElement("input");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "media-select-checkbox";
+    checkbox.hidden = !isSelectionMode;
 
-    checkbox.type =
-        "checkbox";
+    checkbox.addEventListener("click", event => {
+        event.stopPropagation();
+    });
 
-    checkbox.className =
-        "media-select-checkbox";
+    checkbox.addEventListener("change", () => {
+        toggleSelectedMedia(media.id);
+        updateMediaItemSelection(item);
+        updateMediaSelectionUI();
+    });
 
-    checkbox.checked =
-        isMediaSelected(
-            media.id
-        );
-
-    checkbox.addEventListener(
-        "click",
-        event => {
-            event.stopPropagation();
-        }
-    );
-
-    checkbox.addEventListener(
-        "change",
-        () => {
-
-            toggleSelectedMedia(
-                media.id
-            );
-
-            updateMediaItemSelection(
-                item
-            );
-
-            updateMediaSelectionUI();
-        }
-    );
-
-    item.appendChild(
-        checkbox
-    );
+    item.appendChild(checkbox);
 
 
     // --------------------------------------------------
