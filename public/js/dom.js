@@ -60,6 +60,7 @@ export const emptyTrashButton =
     document.getElementById("empty-trash-button");
 
 // メディア選択
+
 export const mediaSelectionButton =
     document.getElementById("media-selection-button");
 
@@ -75,6 +76,9 @@ export const selectAllMediaButton =
 export const clearMediaSelectionButton =
     document.getElementById("clear-media-selection-button");
 
+export const bulkRenameMediaButton =
+    document.getElementById("bulk-rename-media-button");
+
 export const bulkDeleteMediaButton =
     document.getElementById("bulk-delete-media-button");
 
@@ -85,5 +89,6 @@ export const bulkDownloadMediaButton =
     document.getElementById("bulk-download-media-button");
 
 // 並び順
+
 export const mediaSortSelect =
     document.getElementById("media-sort");

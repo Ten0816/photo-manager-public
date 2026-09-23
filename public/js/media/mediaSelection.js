@@ -8,6 +8,7 @@ import {
 
 import {
     selectedMediaCount,
+    bulkRenameMediaButton,
     bulkDeleteMediaButton,
     bulkMoveMediaButton,
     bulkDownloadMediaButton
@@ -220,6 +221,195 @@ export async function bulkDeleteMedia() {
     } finally {
 
         updateMediaSelectionUI();
+    }
+}
+
+
+// ============================================================
+// 一括名前変更
+// ============================================================
+
+export async function bulkRenameMedia() {
+
+    const selectedCount =
+        selectedMediaIds.size;
+
+
+    if (selectedCount === 0) {
+        return false;
+    }
+
+
+    // --------------------------------------------------------
+    // 現在画面に表示されている順番で選択メディアを取得
+    // --------------------------------------------------------
+
+    const selectedMedia =
+        Array.from(
+            document.querySelectorAll(".media-item")
+        )
+            .map(item => item.mediaData)
+            .filter(
+                media =>
+                    media &&
+                    selectedMediaIds.has(media.id)
+            );
+
+
+    if (selectedMedia.length === 0) {
+        return false;
+    }
+
+
+    // --------------------------------------------------------
+    // 新しいベース名を入力
+    // --------------------------------------------------------
+
+    const baseName =
+        await showPrompt(
+            "ファイルを一括名前変更",
+            "",
+            "新しい名前を入力してください。\n例：2022"
+        );
+
+
+    if (baseName === null) {
+        return false;
+    }
+
+
+    const trimmedBaseName =
+        baseName.trim();
+
+
+    if (!trimmedBaseName) {
+
+        await showAlert(
+            "名前を入力してください。",
+            "",
+            {
+                type: "error"
+            }
+        );
+
+        return false;
+    }
+
+
+    // --------------------------------------------------------
+    // 確認
+    // --------------------------------------------------------
+
+    const confirmed =
+        await showConfirm(
+            "ファイルを一括名前変更",
+            `${selectedCount}件のファイルを\n「${trimmedBaseName}_1」「${trimmedBaseName}_2」...に変更しますか？`
+        );
+
+
+    if (!confirmed) {
+        return false;
+    }
+
+
+    try {
+
+        if (bulkRenameMediaButton) {
+            bulkRenameMediaButton.disabled = true;
+        }
+
+
+        // ----------------------------------------------------
+        // 表示順のIDをそのままサーバーへ送る
+        // ----------------------------------------------------
+
+        const ids =
+            selectedMedia.map(
+                media => media.id
+            );
+
+
+        const response =
+            await fetch(
+                "/api/media/bulk-rename",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        ids,
+                        baseName:
+                            trimmedBaseName
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "一括名前変更に失敗しました。"
+            );
+        }
+
+
+        // ----------------------------------------------------
+        // 選択状態を解除
+        // ----------------------------------------------------
+
+        clearSelectedMedia();
+
+
+        // ----------------------------------------------------
+        // メディア一覧を再読み込み
+        // ----------------------------------------------------
+
+        const {
+            refreshMedia
+        } = await import(
+            "./media.js"
+        );
+
+
+        await refreshMedia();
+
+
+        return true;
+
+
+    } catch (error) {
+
+        console.error(
+            "Bulk rename failed:",
+            error
+        );
+
+
+        await showAlert(
+            "一括名前変更に失敗しました",
+            error.message,
+            {
+                type: "error"
+            }
+        );
+
+
+        return false;
+
+
+    } finally {
+
+        updateMediaSelectionUI();
+
     }
 }
 

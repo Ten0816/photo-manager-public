@@ -26,6 +26,7 @@ import {
     mediaSelectionToolbar,
     selectAllMediaButton,
     clearMediaSelectionButton,
+    bulkRenameMediaButton,
     bulkDeleteMediaButton,
     bulkMoveMediaButton,
     bulkDownloadMediaButton
@@ -45,6 +46,7 @@ import {
 import {
     updateMediaSelectionUI,
     refreshMediaSelectionUI,
+    bulkRenameMedia,
     bulkDeleteMedia,
     bulkMoveMedia,
     selectAllVisibleMedia,
@@ -199,6 +201,14 @@ export function initMediaEvents() {
         clearMediaSelectionButton.addEventListener(
             "click",
             clearMediaSelection
+        );
+    }
+
+
+    if (bulkRenameMediaButton) {
+        bulkRenameMediaButton.addEventListener(
+            "click",
+            bulkRenameMedia
         );
     }
 
