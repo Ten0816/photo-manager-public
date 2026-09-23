@@ -26,12 +26,8 @@ const router = express.Router();
  * GET /api/media?path=...&page=...&limit=...&sort=...
  *
  * sort:
- *   date-desc  撮影日時 新しい順
- *   date-asc   撮影日時 古い順
  *   name-asc   名前順
  *   name-desc  名前逆順
- *   size-desc  サイズ 大きい順
- *   size-asc   サイズ 小さい順
  */
 router.get("/", async (req, res) => {
 
@@ -52,7 +48,7 @@ router.get("/", async (req, res) => {
 
         const sort =
             req.query.sort ||
-            "date-desc";
+            "name-asc";
 
 
         if (
@@ -81,36 +77,13 @@ router.get("/", async (req, res) => {
          */
         const sortMap = {
 
-            "date-desc": `
-                taken_at IS NULL ASC,
-                taken_at DESC,
-                path ASC
-            `,
-
-            "date-asc": `
-                taken_at IS NULL ASC,
-                taken_at ASC,
-                path ASC
-            `,
-
             "name-asc": `
-                path ASC
-            `,
+        path ASC
+    `,
 
             "name-desc": `
-                path DESC
-            `,
-
-            "size-desc": `
-                file_size DESC,
-                path ASC
-            `,
-
-            "size-asc": `
-                file_size ASC,
-                path ASC
-            `
-
+        path DESC
+    `
         };
 
 
@@ -171,9 +144,9 @@ router.get("/", async (req, res) => {
                 `).get().count;
 
 
-        // ============================
-        // サブフォルダ
-        // ============================
+            // ============================
+            // サブフォルダ
+            // ============================
 
         } else {
 

@@ -9,7 +9,7 @@ export let isLoading = false;
 export let hasMore = true;
 
 // メディアの並び順
-export let mediaSort = "date-desc";
+export let mediaSort = "name-asc";
 
 // 選択モード
 export let isSelectionMode = false;

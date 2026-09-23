@@ -117,68 +117,94 @@ async function scanDirectory(
         let takenAt = null;
 
 
+        // ========================================================
+        // 撮影日時を決定
+        // ========================================================
+
+        /*
+         * 優先順位
+         *
+         * 1. 既存DBに撮影日時がある
+         * 2. EXIFの撮影日時
+         * 3. ファイルの更新日時
+         *
+         * これにより、EXIFを読み込めない場合でも
+         * taken_at が NULL のままになることを防ぐ。
+         */
+
+
         // ----------------------------
-        // ファイルに変更がない場合
+        // ① 既存DBの撮影日時を優先
         // ----------------------------
 
         if (
             existing &&
-            existing.type === type &&
-            existing.file_size === fileSize &&
-            existing.modified_at === modifiedAt
+            existing.taken_at
         ) {
 
-            // DBに保存済みの撮影日時をそのまま使用
             takenAt =
                 existing.taken_at;
+        }
 
-        } else {
 
-            // ----------------------------
-            // ファイルが新規・変更済みの場合
-            // EXIFを再解析
-            // ----------------------------
+        // ----------------------------
+        // ② DBに撮影日時がない場合
+        //    EXIFを解析
+        // ----------------------------
 
-            if (type === "image") {
+        if (!takenAt && type === "image") {
 
-                try {
+            try {
 
-                    const exif =
-                        await exifr.parse(
-                            fullPath
+                const exif =
+                    await exifr.parse(
+                        fullPath
+                    );
+
+                if (exif) {
+
+                    const date =
+                        exif.DateTimeOriginal ??
+                        exif.CreateDate ??
+                        null;
+
+                    const offset =
+                        exif.OffsetTimeOriginal ??
+                        exif.OffsetTimeDigitized ??
+                        null;
+
+                    takenAt =
+                        parseExifDate(
+                            date,
+                            offset
                         );
-
-                    if (exif) {
-
-                        const date =
-                            exif.DateTimeOriginal ??
-                            exif.CreateDate ??
-                            null;
-
-                        const offset =
-                            exif.OffsetTimeOriginal ??
-                            exif.OffsetTimeDigitized ??
-                            null;
-
-                        takenAt =
-                            parseExifDate(
-                                date,
-                                offset
-                            );
-                    }
-
-                } catch (error) {
-
-                    console.warn(
-                        "EXIFの読み込みに失敗しました: " +
-                        relativePath
-                    );
-
-                    console.warn(
-                        error.message
-                    );
                 }
+
+            } catch (error) {
+
+                console.warn(
+                    "EXIFの読み込みに失敗しました: " +
+                    relativePath
+                );
+
+                console.warn(
+                    error.message
+                );
             }
+        }
+
+
+        // ----------------------------
+        // ③ EXIFからも取得できなかった場合
+        //    ファイルの更新日時を使用
+        // ----------------------------
+
+        if (!takenAt) {
+
+            takenAt =
+                new Date(
+                    modifiedAt
+                ).toISOString();
         }
 
 
@@ -458,6 +484,7 @@ async function main() {
     for (
         const file of existingFiles
     ) {
+
         existingMap.set(
             file.path,
             file
@@ -585,6 +612,10 @@ async function main() {
                     );
                 }
 
+
+                // ----------------------------
+                // DBにだけ存在するファイルを削除
+                // ----------------------------
 
                 const deleteMedia =
                     db.prepare(`
