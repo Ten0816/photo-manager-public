@@ -13,6 +13,10 @@ import {
   deleteMedia
 } from "./media/mediaActions.js";
 
+import {
+  refreshMedia
+} from "./media/media.js";
+
 
 let currentViewerMedia = null;
 
@@ -747,6 +751,8 @@ function renderViewerActions() {
       loadViewerMedia(
         currentViewerMedia
       );
+
+      await refreshMedia();
     }
   );
 
@@ -792,6 +798,8 @@ function renderViewerActions() {
 
       // 削除後は一覧に戻る
       closeModal();
+
+      await refreshMedia();
     }
   );
 
