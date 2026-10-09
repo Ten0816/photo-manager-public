@@ -14,8 +14,23 @@ const {
 const folderRoutes =
     require("./routes/folderRoutes");
 
-const mediaRoutes =
-    require("./routes/mediaRoutes");
+const mediaRenameRoutes =
+    require("./routes/mediaRenameRoutes");
+
+const mediaBulkRenameRoutes =
+    require("./routes/mediaBulkRenameRoutes");
+
+const mediaDeleteRoutes =
+    require("./routes/mediaDeleteRoutes");
+
+const mediaBulkDeleteRoutes =
+    require("./routes/mediaBulkDeleteRoutes");
+
+const mediaMoveRoutes =
+    require("./routes/mediaMoveRoutes");
+
+const mediaListRoutes =
+    require("./routes/mediaListRoutes");
 
 const mediaInfoRoutes =
     require("./routes/mediaInfoRoutes");
@@ -31,6 +46,9 @@ const storageRoutes =
 
 const trashRoutes =
     require("./routes/trashRoutes");
+
+const trashDeleteRoutes =
+    require("./routes/trashDeleteRoutes");
 
 const authRoutes =
     require("./routes/authRoutes");
@@ -86,7 +104,32 @@ app.use(
 
 app.use(
     "/api/media",
-    mediaRoutes
+    mediaRenameRoutes
+);
+
+app.use(
+    "/api/media",
+    mediaBulkRenameRoutes
+);
+
+app.use(
+    "/api/media",
+    mediaDeleteRoutes
+);
+
+app.use(
+    "/api/media",
+    mediaBulkDeleteRoutes
+);
+
+app.use(
+    "/api/media",
+    mediaMoveRoutes
+);
+
+app.use(
+    "/api/media",
+    mediaListRoutes
 );
 
 app.use(
@@ -112,6 +155,11 @@ app.use(
 app.use(
     "/api/trash",
     trashRoutes
+);
+
+app.use(
+    "/api/trash",
+    trashDeleteRoutes
 );
 
 app.use(

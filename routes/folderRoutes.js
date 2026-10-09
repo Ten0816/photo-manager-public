@@ -28,6 +28,17 @@ function isInternalDirectory(name) {
 }
 
 /**
+ * フォルダ名が安全か確認
+ */
+function isValidFolderName(name) {
+    return Boolean(name) &&
+        !name.includes("/") &&
+        !name.includes("\\") &&
+        name !== "." &&
+        name !== "..";
+}
+
+/**
  * フォルダ一覧取得
  *
  * GET /api/folders?path=...
@@ -124,12 +135,7 @@ router.post("/", async (req, res) => {
             });
         }
 
-        if (
-            folderName.includes("/") ||
-            folderName.includes("\\") ||
-            folderName === "." ||
-            folderName === ".."
-        ) {
+        if (!isValidFolderName(folderName)) {
             return res.status(400).json({
                 error:
                     "Invalid folder name"
@@ -295,12 +301,7 @@ router.put("/", async (req, res) => {
             });
         }
 
-        if (
-            newName.includes("/") ||
-            newName.includes("\\") ||
-            newName === "." ||
-            newName === ".."
-        ) {
+        if (!isValidFolderName(newName)) {
             return res.status(400).json({
                 error:
                     "Invalid folder name"
