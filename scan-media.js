@@ -8,6 +8,12 @@ const MEDIA_DIR =
     process.env.MEDIA_DIR || "/data/Memory";
 
 
+/**
+ * ディレクトリを再帰的にスキャンする。
+ *
+ * 既存DBに保存されている撮影日時を優先し、
+ * 新規ファイルについてはEXIFから撮影日時を取得する。
+ */
 async function scanDirectory(
     directory,
     existingMap
@@ -128,8 +134,8 @@ async function scanDirectory(
          * 2. EXIFの撮影日時
          * 3. ファイルの更新日時
          *
-         * これにより、EXIFを読み込めない場合でも
-         * taken_at が NULL のままになることを防ぐ。
+         * EXIFを読み込めない場合でも、
+         * taken_at がNULLのままになることを防ぐ。
          */
 
 
@@ -238,7 +244,7 @@ async function scanDirectory(
  * EXIFの撮影日時をISO 8601形式へ変換する。
  *
  * 例:
- * DateTimeOriginal  = 2026:09:19 17:34:55
+ * DateTimeOriginal   = 2026:09:19 17:34:55
  * OffsetTimeOriginal = +09:00
  *
  * ↓
@@ -409,6 +415,9 @@ function parseExifDate(
 }
 
 
+/**
+ * 対応するメディアファイルか判定する。
+ */
 function isMediaFile(
     fileName
 ) {
@@ -432,6 +441,9 @@ function isMediaFile(
 }
 
 
+/**
+ * メディアの種類を取得する。
+ */
 function getMediaType(
     fileName
 ) {
@@ -454,6 +466,9 @@ function getMediaType(
 }
 
 
+/**
+ * メディア情報をスキャンし、SQLiteと同期する。
+ */
 async function main() {
 
     console.log(
@@ -510,9 +525,81 @@ async function main() {
     );
 
 
+    // ========================================================
+    // 同期前の安全チェック
+    // ========================================================
+
+
     // ----------------------------
+    // ① スキャン結果が0件なら中止
+    // ----------------------------
+
+    /*
+     * DBに既存データがあるのに
+     * スキャン結果が0件の場合、
+     * HDDのマウント異常などが考えられる。
+     *
+     * この状態で同期すると、DBのデータが
+     * すべて削除される可能性があるため中止する。
+     */
+
+    if (
+        existingFiles.length > 0 &&
+        files.length === 0
+    ) {
+
+        throw new Error(
+            "メディアが0件です。" +
+            "DBの削除を防ぐため、同期を中止しました。"
+        );
+    }
+
+
+    // ----------------------------
+    // ② 大量削除の防止
+    // ----------------------------
+
+    /*
+     * DBに登録済みのメディアが20件以上ある場合、
+     * スキャン結果が20%以上減少していれば中止する。
+     *
+     * 大量のファイルを意図的に削除する場合は、
+     * この判定に引っかかる可能性がある。
+     */
+
+    const MIN_EXISTING_MEDIA_COUNT = 20;
+
+    const MAX_DECREASE_RATIO = 0.2;
+
+
+    if (
+        existingFiles.length >= MIN_EXISTING_MEDIA_COUNT
+    ) {
+
+        const decreaseRatio =
+            (
+                existingFiles.length -
+                files.length
+            ) / existingFiles.length;
+
+
+        if (
+            decreaseRatio >= MAX_DECREASE_RATIO
+        ) {
+
+            throw new Error(
+                "メディア件数が大幅に減少しています。" +
+                ` DB: ${existingFiles.length} 件、` +
+                `スキャン結果: ${files.length} 件。` +
+                "DBの変更を中止しました。"
+            );
+        }
+    }
+
+
+    // ========================================================
     // SQLiteを同期
-    // ----------------------------
+    // ========================================================
 
     const transaction =
         db.transaction(
@@ -522,7 +609,9 @@ async function main() {
             ) => {
 
                 let inserted = 0;
+
                 let updated = 0;
+
                 let deleted = 0;
 
 
@@ -539,6 +628,10 @@ async function main() {
                     );
                 }
 
+
+                // ----------------------------
+                // INSERT / UPDATE用SQL
+                // ----------------------------
 
                 const upsert =
                     db.prepare(`
@@ -558,6 +651,10 @@ async function main() {
                     `);
 
 
+                // ----------------------------
+                // スキャン結果をDBに反映
+                // ----------------------------
+
                 for (
                     const file of files
                 ) {
@@ -567,6 +664,8 @@ async function main() {
                             file.path
                         );
 
+
+                    // 新規ファイル
 
                     if (!existing) {
 
@@ -587,6 +686,8 @@ async function main() {
                         continue;
                     }
 
+
+                    // 既存ファイルの情報に変更がある場合
 
                     if (
                         existing.type !== file.type ||
@@ -651,12 +752,18 @@ async function main() {
         );
 
 
+    // トランザクションを実行
+
     const result =
         transaction(
             files,
             existingFiles
         );
 
+
+    // ----------------------------
+    // 同期結果を表示
+    // ----------------------------
 
     console.log(
         "SQLiteの同期が完了しました。"
@@ -682,6 +789,10 @@ async function main() {
 }
 
 
+// ========================================================
+// エラーハンドリング
+// ========================================================
+
 main().catch(
     (error) => {
 
@@ -692,5 +803,8 @@ main().catch(
         console.error(
             error
         );
+
+        // Dockerなどから異常終了を検知できるようにする
+        process.exitCode = 1;
     }
 );

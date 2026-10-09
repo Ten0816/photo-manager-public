@@ -34,170 +34,146 @@ router.get("/", async (req, res) => {
     try {
 
         const page =
-            parseInt(
-                req.query.page
-            ) || 1;
+            parseInt(req.query.page) || 1;
 
         const limit =
-            parseInt(
-                req.query.limit
-            ) || 100;
+            parseInt(req.query.limit) || 100;
 
         const relativePath =
             req.query.path || "";
 
         const sort =
-            req.query.sort ||
-            "name-asc";
+            req.query.sort || "name-asc";
 
+
+        // ----------------------------
+        // パラメータ検証
+        // ----------------------------
 
         if (
             page < 1 ||
             limit < 1
         ) {
-
             return res.status(400).json({
-                error:
-                    "Invalid page or limit"
+                error: "Invalid page or limit"
             });
+        }
 
+        getSafeMediaPath(relativePath);
+
+
+        if (
+            sort !== "name-asc" &&
+            sort !== "name-desc"
+        ) {
+            return res.status(400).json({
+                error: "Invalid sort option"
+            });
         }
 
 
-        getSafeMediaPath(
-            relativePath
-        );
+        // ----------------------------
+// メディア取得・自然順ソート
+// ----------------------------
+
+const order =
+    sort === "name-desc"
+        ? "DESC"
+        : "ASC";
+
+let media;
+
+if (relativePath === "") {
+
+    // ルートフォルダ
+
+    media = db.prepare(`
+        SELECT
+            id,
+            path,
+            type,
+            file_size,
+            modified_at,
+            taken_at
+        FROM media
+        WHERE instr(path, '/') = 0
+    `).all();
+
+} else {
+
+    // サブフォルダ
+
+    const prefix =
+        relativePath + "/%";
+
+    const deepPrefix =
+        relativePath + "/%/%";
+
+    media = db.prepare(`
+        SELECT
+            id,
+            path,
+            type,
+            file_size,
+            modified_at,
+            taken_at
+        FROM media
+        WHERE path LIKE ?
+        AND path NOT LIKE ?
+    `).all(
+        prefix,
+        deepPrefix
+    );
+}
 
 
-        /*
-         * ソート条件
-         *
-         * sortを直接SQLへ入れない。
-         * 必ずホワイトリストから選択する。
-         */
-        const sortMap = {
+// ----------------------------
+// 自然順ソート
+// ----------------------------
 
-            "name-asc": `
-        path ASC
-    `,
+media.sort((a, b) => {
+    const nameA = path.basename(a.path);
+    const nameB = path.basename(b.path);
 
-            "name-desc": `
-        path DESC
-    `
-        };
-
-
-        if (!sortMap[sort]) {
-
-            return res.status(400).json({
-                error:
-                    "Invalid sort option"
-            });
-
+    const result = nameA.localeCompare(
+        nameB,
+        undefined,
+        {
+            numeric: true,
+            sensitivity: "base"
         }
+    );
+
+    return sort === "name-desc"
+        ? -result
+        : result;
+});
 
 
-        const orderBy =
-            sortMap[sort];
+        // ----------------------------
+        // ページネーション
+        // ----------------------------
 
+        const total =
+            media.length;
 
         const offset =
             (page - 1) * limit;
 
-
-        let media;
-        let total;
-
-
-        // ============================
-        // ルートフォルダ
-        // ============================
-
-        if (relativePath === "") {
-
-            media =
-                db.prepare(`
-                    SELECT
-                        id,
-                        path,
-                        type,
-                        file_size,
-                        modified_at,
-                        taken_at
-                    FROM media
-                    WHERE instr(path, '/') = 0
-                    ORDER BY
-                        ${orderBy}
-                    LIMIT ? OFFSET ?
-                `).all(
-                    limit,
-                    offset
-                );
+        const paginatedMedia =
+            media.slice(
+                offset,
+                offset + limit
+            );
 
 
-            total =
-                db.prepare(`
-                    SELECT
-                        COUNT(*) AS count
-                    FROM media
-                    WHERE instr(path, '/') = 0
-                `).get().count;
-
-
-            // ============================
-            // サブフォルダ
-            // ============================
-
-        } else {
-
-            const prefix =
-                relativePath + "/%";
-
-            const deepPrefix =
-                relativePath + "/%/%";
-
-
-            media =
-                db.prepare(`
-                    SELECT
-                        id,
-                        path,
-                        type,
-                        file_size,
-                        modified_at,
-                        taken_at
-                    FROM media
-                    WHERE path LIKE ?
-                    AND path NOT LIKE ?
-                    ORDER BY
-                        ${orderBy}
-                    LIMIT ? OFFSET ?
-                `).all(
-                    prefix,
-                    deepPrefix,
-                    limit,
-                    offset
-                );
-
-
-            total =
-                db.prepare(`
-                    SELECT
-                        COUNT(*) AS count
-                    FROM media
-                    WHERE path LIKE ?
-                    AND path NOT LIKE ?
-                `).get(
-                    prefix,
-                    deepPrefix
-                ).count;
-
-        }
-
+        // ----------------------------
+        // レスポンス
+        // ----------------------------
 
         res.json({
 
-            media,
+            media: paginatedMedia,
 
             page,
 
@@ -208,9 +184,7 @@ router.get("/", async (req, res) => {
             sort,
 
             hasMore:
-                offset +
-                media.length <
-                total
+                offset + paginatedMedia.length < total
 
         });
 
@@ -220,8 +194,7 @@ router.get("/", async (req, res) => {
         console.error(error);
 
         res.status(500).json({
-            error:
-                "Failed to fetch media"
+            error: "Failed to fetch media"
         });
 
     }
