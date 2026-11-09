@@ -17,6 +17,8 @@ const {
   getUniqueFilePath
 } = require("../services/mediaService");
 
+const { getTrashThumbnailFilePath, createTrashThumbnail, invalidateTrashThumbnail } = require("../services/thumbnailService");
+const { moveFileNoOverwrite } = require("../utils/fileOperations");
 const router = express.Router();
 
 const execFileAsync =
@@ -78,20 +80,8 @@ function getTrashFilePath(
  * 実体:
  * Memory/.thumbnails/.trash/3211.jpg
  */
-function getTrashThumbnailPath(
-  trashRelativePath
-) {
-  const normalizedPath =
-    normalizeTrashRelativePath(
-      trashRelativePath
-    );
-
-  return getThumbnailPath(
-    path.join(
-      ".trash",
-      normalizedPath
-    )
-  );
+function getTrashThumbnailPath(trashRelativePath) {
+  return getTrashThumbnailFilePath(trashRelativePath);
 }
 
 
@@ -180,61 +170,7 @@ router.get(
           trashItem.trash_path
         );
 
-      /*
-       * サムネイル保存先
-       */
-      const thumbnailPath =
-        getTrashThumbnailPath(
-          trashItem.trash_path
-        );
-
-      /*
-       * サムネイルディレクトリ作成
-       */
-      await fs.mkdir(
-        path.dirname(
-          thumbnailPath
-        ),
-        {
-          recursive: true
-        }
-      );
-
-      /*
-       * 既存サムネイルがあれば使用
-       */
-      try {
-        await fs.access(
-          thumbnailPath
-        );
-
-      } catch {
-        /*
-         * サムネイル生成
-         */
-        console.log(
-          "Creating trash thumbnail:",
-          trashFilePath
-        );
-
-        await execFileAsync(
-          "ffmpeg",
-          [
-            "-y",
-            "-i",
-            trashFilePath,
-            "-frames:v",
-            "1",
-            "-vf",
-            "scale='min(400,iw)':-1",
-            "-q:v",
-            "5",
-            "-update",
-            "1",
-            thumbnailPath
-          ]
-        );
-      }
+      const thumbnailPath = await createTrashThumbnail(trashItem.trash_path);
 
       /*
        * JPEGとして返す
@@ -396,7 +332,7 @@ router.post(
       /*
        * ファイルを復元
        */
-      await fs.rename(
+      await moveFileNoOverwrite(
         trashFilePath,
         finalFilePath
       );
@@ -469,11 +405,7 @@ router.post(
        * 必要になった時に再生成する。
        */
       try {
-        await fs.unlink(
-          getTrashThumbnailPath(
-            trashItem.trash_path
-          )
-        );
+        await invalidateTrashThumbnail(trashItem.trash_path);
 
       } catch (error) {
         if (

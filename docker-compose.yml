@@ -37,11 +37,35 @@ services:
       - |
         sleep 60
         while true; do
-          node scan-media.js
-          node cleanup-trash.js
+          if node scan-media.js; then
+            node cleanup-trash.js
+          else
+            echo "Scan failed: skipping trash cleanup" >&2
+          fi
           sleep 300
         done
 
+    restart: unless-stopped
+
+  # Automatic consistent SQLite snapshots (on the SD card by default).
+  # Copy backups to a second device as protection against SD-card failure.
+  photo-manager-backup:
+    build: .
+    container_name: photo-manager-backup
+    user: "1000:1003"
+    environment:
+      DATABASE_PATH: /app/data/photo-manager.db
+      BACKUP_DIR: /app/data/backups
+    volumes:
+      - ./data:/app/data
+    command:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          node backup-database.js
+          sleep 86400
+        done
     restart: unless-stopped
 
   nginx:

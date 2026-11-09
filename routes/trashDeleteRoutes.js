@@ -17,6 +17,7 @@ const {
   getUniqueFilePath
 } = require("../services/mediaService");
 
+const { getTrashThumbnailFilePath, createTrashThumbnail, invalidateTrashThumbnail } = require("../services/thumbnailService");
 const router = express.Router();
 
 const execFileAsync =
@@ -78,20 +79,8 @@ function getTrashFilePath(
  * 実体:
  * Memory/.thumbnails/.trash/3211.jpg
  */
-function getTrashThumbnailPath(
-  trashRelativePath
-) {
-  const normalizedPath =
-    normalizeTrashRelativePath(
-      trashRelativePath
-    );
-
-  return getThumbnailPath(
-    path.join(
-      ".trash",
-      normalizedPath
-    )
-  );
+function getTrashThumbnailPath(trashRelativePath) {
+  return getTrashThumbnailFilePath(trashRelativePath);
 }
 
 
@@ -160,11 +149,7 @@ router.delete(
        * ゴミ箱サムネイルも削除
        */
       try {
-        await fs.unlink(
-          getTrashThumbnailPath(
-            trashItem.trash_path
-          )
-        );
+        await invalidateTrashThumbnail(trashItem.trash_path);
 
       } catch (error) {
         if (
@@ -249,11 +234,7 @@ router.delete(
          * ゴミ箱サムネイル
          */
         try {
-          await fs.unlink(
-            getTrashThumbnailPath(
-              item.trash_path
-            )
-          );
+          await invalidateTrashThumbnail(item.trash_path);
 
         } catch (error) {
           if (
@@ -263,14 +244,10 @@ router.delete(
             throw error;
           }
         }
+        // Mark each successfully deleted item immediately. If a later item
+        // fails, the DB no longer refers to already-deleted earlier items.
+        db.prepare(`DELETE FROM trash WHERE id = ?`).run(item.id);
       }
-
-      /*
-       * DBからすべて削除
-       */
-      db.prepare(`
-        DELETE FROM trash
-      `).run();
 
       res.json({
         message:

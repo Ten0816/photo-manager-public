@@ -2,6 +2,8 @@ const fs = require("fs/promises");
 const path = require("path");
 
 const db = require("./database");
+const { assertStorageAvailable } = require("./utils/storageSafety");
+const { invalidateTrashThumbnail } = require("./services/thumbnailService");
 
 const {
     MEDIA_DIR,
@@ -90,6 +92,7 @@ function getTrashThumbnailPath(
 
 
 async function cleanupTrash() {
+    await assertStorageAvailable();
 
     const items =
         db.prepare(`
@@ -109,6 +112,7 @@ async function cleanupTrash() {
 
 
     for (const item of items) {
+        await assertStorageAvailable();
 
         console.log(
             "Deleting:",
@@ -138,27 +142,7 @@ async function cleanupTrash() {
         }
 
 
-        /*
-         * ゴミ箱サムネイル
-         */
-        try {
-
-            await fs.unlink(
-                getTrashThumbnailPath(
-                    item.trash_path
-                )
-            );
-
-        } catch (error) {
-
-            if (
-                error.code !==
-                "ENOENT"
-            ) {
-                throw error;
-            }
-        }
-
+        await invalidateTrashThumbnail(item.trash_path);
 
         /*
          * DBから削除

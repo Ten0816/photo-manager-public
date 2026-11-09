@@ -78,4 +78,16 @@ db.exec(`
     )
 `);
 
+
+
+// Revocable persistent login sessions.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+        token_hash TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at);
+`);
+
 module.exports = db;

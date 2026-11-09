@@ -6,3 +6,10 @@ photo-manager.db-wal
 .env
 
 *.log
+
+# Local state and user data
+data/
+*.db*
+Memory/
+.thumbnails/
+.trash/

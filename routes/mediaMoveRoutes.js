@@ -8,6 +8,8 @@ const {
     getSafeMediaPath
 } = require("../utils/pathUtils");
 
+const { moveFileNoOverwrite } = require("../utils/fileOperations");
+const { invalidateThumbnail } = require("../services/thumbnailService");
 const router = express.Router();
 
 /**
@@ -146,6 +148,7 @@ router.post("/bulk-move", async (req, res) => {
         // --------------------------------
 
         const movePlan = [];
+        const destinationNames = new Set();
 
 
         for (const media of mediaList) {
@@ -179,6 +182,11 @@ router.post("/bulk-move", async (req, res) => {
                     newRelativePath
                 );
 
+
+            if (destinationNames.has(newRelativePath)) {
+                return res.status(409).json({ error: `選択したファイル同士で名前が重複しています: ${fileName}` });
+            }
+            destinationNames.add(newRelativePath);
 
             // 同じ場所への移動
             if (
@@ -233,7 +241,7 @@ router.post("/bulk-move", async (req, res) => {
 
             for (const plan of movePlan) {
 
-                await fs.rename(
+                await moveFileNoOverwrite(
                     plan.oldPath,
                     plan.newPath
                 );
@@ -330,6 +338,12 @@ router.post("/bulk-move", async (req, res) => {
         }
 
 
+        // Cache is disposable; never roll back a successful move for cache cleanup.
+        for (const plan of movePlan) {
+            await invalidateThumbnail(plan.media.path).catch(console.error);
+            await invalidateThumbnail(plan.newRelativePath).catch(console.error);
+        }
+
         res.json({
             message:
                 "Media moved successfully",
@@ -344,6 +358,9 @@ router.post("/bulk-move", async (req, res) => {
         console.error(error);
 
 
+        if (error.code === "EEXIST") {
+            return res.status(409).json({error: "同名ファイルが移動先に存在します"});
+        }
         if (
             error.code ===
             "ENOENT"

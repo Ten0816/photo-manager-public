@@ -17,7 +17,8 @@ const router = express.Router();
  */
 const INTERNAL_DIRECTORIES = new Set([
     ".thumbnails",
-    ".trash"
+    ".trash",
+    ".incoming"
 ]);
 
 /**
@@ -31,11 +32,11 @@ function isInternalDirectory(name) {
  * フォルダ名が安全か確認
  */
 function isValidFolderName(name) {
-    return Boolean(name) &&
+    return typeof name === "string" && name.length > 0 &&
         !name.includes("/") &&
         !name.includes("\\") &&
         name !== "." &&
-        name !== "..";
+        name !== ".." && !name.includes("\0");
 }
 
 /**
@@ -359,6 +360,10 @@ router.put("/", async (req, res) => {
             newRelativePath
         );
 
+        if (relativePath === newRelativePath) {
+            return res.json({ message: "Folder name is unchanged", oldPath: relativePath, newPath: newRelativePath });
+        }
+
         // 同名フォルダ確認
         try {
             await fs.access(newPath);
@@ -386,15 +391,34 @@ router.put("/", async (req, res) => {
         const newPrefix =
             newRelativePath + "/";
 
-        db.prepare(`
-            UPDATE media
-            SET path = ? || substr(path, ?)
-            WHERE path LIKE ?
-        `).run(
-            newPrefix,
-            oldPrefix.length + 1,
-            oldPrefix + "%"
-        );
+        try {
+            db.prepare(`
+                UPDATE media
+                SET path = ? || substr(path, ?)
+                WHERE substr(path, 1, ?) = ?
+            `).run(
+                newPrefix,
+                oldPrefix.length + 1,
+                oldPrefix.length,
+                oldPrefix
+            );
+        } catch (error) {
+            // Do not leave a renamed folder with unchanged media rows.
+            try { await fs.rename(newPath, oldPath); }
+            catch (rollbackError) { console.error("Folder rollback failed:", rollbackError); }
+            throw error;
+        }
+
+        // Keep the folder's cache with it (failure is non-critical).
+        const { getThumbnailPath } = require("../utils/pathUtils");
+        try {
+            const oldCache = getThumbnailPath(relativePath);
+            const newCache = getThumbnailPath(newRelativePath);
+            await fs.mkdir(path.dirname(newCache), { recursive: true });
+            await fs.rename(oldCache, newCache);
+        } catch (cacheError) {
+            if (cacheError.code !== "ENOENT") console.warn("Thumbnail cache move skipped:", cacheError);
+        }
 
         res.json({
             message:

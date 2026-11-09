@@ -1,185 +1,67 @@
-const express = require("express");
-const {
-    ZipArchive
-} = require("archiver");
-const path = require("path");
+const express = require('express');
+const fs = require('fs/promises');
+const path = require('path');
+const { ZipArchive } = require('archiver');
+const db = require('../database');
+const { getSafeMediaPath } = require('../utils/pathUtils');
+const router = express.Router();
 
-const db = require("../database");
+const MAX_ZIP_FILES = 1000;
+const MAX_ZIP_BYTES = 20 * 1024 * 1024 * 1024;
 
-const {
-    getSafeMediaPath
-} = require("../utils/pathUtils");
-
-const router =
-    express.Router();
-
-/*
- * 単一ファイルダウンロード
- */
-router.get("/", async (req, res) => {
-    const relativePath =
-        req.query.path;
-
-    if (
-        typeof relativePath !== "string" ||
-        !relativePath
-    ) {
-        return res.status(400).json({
-            error: "Media path is required"
-        });
+router.get('/', async (req, res) => {
+    const relativePath = req.query.path;
+    if (typeof relativePath !== 'string' || !relativePath) {
+        return res.status(400).json({ error: 'Media path is required' });
     }
-
     try {
-        const filePath =
-            getSafeMediaPath(
-                relativePath
-            );
-
-        res.download(
-            filePath,
-            path.basename(relativePath),
-            error => {
-                if (error) {
-                    console.error(
-                        "Download failed:",
-                        error
-                    );
-
-                    if (!res.headersSent) {
-                        res.status(404).json({
-                            error:
-                                "Media file not found"
-                        });
-                    }
-                }
-            }
-        );
-
-    } catch (error) {
-        console.error(error);
-
-        res.status(400).json({
-            error:
-                "Invalid media path"
+        const filePath = getSafeMediaPath(relativePath);
+        if (!db.prepare('SELECT 1 FROM media WHERE path = ?').get(relativePath)) {
+            return res.status(404).json({ error: 'Media not found' });
+        }
+        res.download(filePath, path.basename(relativePath), error => {
+            if (error && !res.headersSent) res.status(404).json({ error: 'Media file not found' });
         });
+    } catch (error) {
+        res.status(400).json({ error: 'Invalid media path' });
     }
 });
 
-
-/*
- * 複数ファイルをZIPとしてダウンロード
- */
-router.post("/zip", async (req, res) => {
-    const ids =
-        req.body?.ids;
-
-    if (
-        !Array.isArray(ids) ||
-        ids.length === 0
-    ) {
-        return res.status(400).json({
-            error:
-                "Media IDs are required"
-        });
+router.post('/zip', async (req, res) => {
+    const raw = req.body?.ids;
+    if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_ZIP_FILES ||
+        raw.some(value => !Number.isSafeInteger(Number(value)) || Number(value) < 1)) {
+        return res.status(400).json({ error: `1〜${MAX_ZIP_FILES}個の有効なIDを指定してください` });
     }
-
+    const ids = [...new Set(raw.map(Number))];
     try {
-        const media =
-            db.prepare(`
-                SELECT
-                    id,
-                    path,
-                    type
-                FROM media
-                WHERE id IN (
-                    ${ids.map(() => "?").join(",")}
-                )
-            `).all(...ids);
-
-        if (media.length === 0) {
-            return res.status(404).json({
-                error:
-                    "Media not found"
-            });
-        }
-
-        res.statusCode = 200;
-
-        res.setHeader(
-            "Content-Type",
-            "application/zip"
-        );
-
-        res.setHeader(
-            "Content-Disposition",
-            'attachment; filename="photo-manager.zip"'
-        );
-
-        const archive =
-            new ZipArchive({
-                zlib: {
-                    level: 0
-                }
-            });
-
-        archive.on(
-            "error",
-            error => {
-                console.error(
-                    "ZIP creation failed:",
-                    error
-                );
-
-                if (!res.headersSent) {
-                    res.status(500).json({
-                        error:
-                            "Failed to create ZIP"
-                    });
-                } else {
-                    res.destroy(error);
-                }
-            }
-        );
-
-        archive.pipe(res);
-
+        const media = db.prepare(`SELECT id, path, file_size FROM media WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+        if (media.length !== ids.length) return res.status(404).json({ error: 'Some media were not found' });
+        let bytes = 0;
+        const files = [];
         for (const item of media) {
-            try {
-                const filePath =
-                    getSafeMediaPath(
-                        item.path
-                    );
-
-                archive.file(
-                    filePath,
-                    {
-                        name: item.path
-                    }
-                );
-
-            } catch (error) {
-                console.warn(
-                    "ZIPに追加できないファイル:",
-                    item.path
-                );
-            }
+            const filePath = getSafeMediaPath(item.path);
+            const stat = await fs.stat(filePath);
+            if (!stat.isFile()) return res.status(400).json({ error: 'Invalid media file' });
+            bytes += stat.size;
+            if (bytes > MAX_ZIP_BYTES) return res.status(413).json({ error: 'ZIPの合計容量が20GBを超えます' });
+            files.push({ filePath, relative: item.path });
         }
-
+        const archive = new ZipArchive({ zlib: { level: 0 } });
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="photo-manager.zip"');
+        archive.on('error', error => {
+            console.error('ZIP creation failed:', error);
+            if (!res.headersSent) res.status(500).json({ error: 'ZIP creation failed' });
+            else res.destroy(error);
+        });
+        res.on('close', () => { if (!res.writableEnded) archive.abort(); });
+        archive.pipe(res);
+        for (const file of files) archive.file(file.filePath, { name: file.relative });
         await archive.finalize();
-
     } catch (error) {
-        console.error(
-            "ZIP download failed:",
-            error
-        );
-
-        if (!res.headersSent) {
-            res.status(500).json({
-                error:
-                    "Failed to download ZIP"
-            });
-        }
+        console.error('ZIP download failed:', error);
+        if (!res.headersSent) res.status(500).json({ error: 'ZIP download failed' });
     }
 });
-
 module.exports = router;

@@ -14,6 +14,7 @@ const {
     getExtension
 } = require("../services/mediaService");
 
+const { moveFileNoOverwrite } = require("../utils/fileOperations");
 const router = express.Router();
 
 /**
@@ -247,7 +248,7 @@ router.post("/bulk-rename", async (req, res) => {
                     ),
                     path.parse(
                         oldRelativePath
-                    ).name + ".jpg"
+                    ).base + ".thumb.jpg"
                 );
 
 
@@ -258,7 +259,7 @@ router.post("/bulk-rename", async (req, res) => {
                     ),
                     path.parse(
                         newRelativePath
-                    ).name + ".jpg"
+                    ).base + ".thumb.jpg"
                 );
 
 
@@ -522,7 +523,7 @@ router.post("/bulk-rename", async (req, res) => {
 
             for (const plan of renamePlan) {
 
-                await fs.rename(
+                await moveFileNoOverwrite(
                     plan.oldPath,
                     plan.temporaryPath
                 );
@@ -546,7 +547,7 @@ router.post("/bulk-rename", async (req, res) => {
 
                 try {
 
-                    await fs.rename(
+                    await moveFileNoOverwrite(
                         plan.temporaryPath,
                         plan.oldPath
                     );
@@ -639,7 +640,7 @@ router.post("/bulk-rename", async (req, res) => {
 
                 try {
 
-                    await fs.rename(
+                    await moveFileNoOverwrite(
                         plan.temporaryPath,
                         plan.oldPath
                     );
@@ -670,7 +671,7 @@ router.post("/bulk-rename", async (req, res) => {
 
             for (const plan of renamePlan) {
 
-                await fs.rename(
+                await moveFileNoOverwrite(
                     plan.temporaryPath,
                     plan.newPath
                 );
@@ -712,7 +713,7 @@ router.post("/bulk-rename", async (req, res) => {
 
                 try {
 
-                    await fs.rename(
+                    await moveFileNoOverwrite(
                         plan.newPath,
                         plan.oldPath
                     );
@@ -749,7 +750,7 @@ router.post("/bulk-rename", async (req, res) => {
                     }
 
 
-                    await fs.rename(
+                    await moveFileNoOverwrite(
                         plan.temporaryPath,
                         plan.oldPath
                     );
@@ -874,7 +875,7 @@ router.post("/bulk-rename", async (req, res) => {
 
                 try {
 
-                    await fs.rename(
+                    await moveFileNoOverwrite(
                         plan.newPath,
                         plan.oldPath
                     );
@@ -922,6 +923,12 @@ router.post("/bulk-rename", async (req, res) => {
         // ====================================================
         // 完了
         // ====================================================
+
+        const { invalidateThumbnail } = require("../services/thumbnailService");
+        for (const plan of renamePlan) {
+            await invalidateThumbnail(plan.oldRelativePath);
+            await invalidateThumbnail(plan.newRelativePath);
+        }
 
         res.json({
             message:

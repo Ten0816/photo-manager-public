@@ -23,10 +23,10 @@ router.get("/", async (req, res) => {
     try {
 
         const page =
-            parseInt(req.query.page) || 1;
+            req.query.page === undefined ? 1 : Number(req.query.page);
 
         const limit =
-            parseInt(req.query.limit) || 100;
+            req.query.limit === undefined ? 100 : Number(req.query.limit);
 
         const relativePath =
             req.query.path || "";
@@ -40,8 +40,11 @@ router.get("/", async (req, res) => {
         // ----------------------------
 
         if (
+            !Number.isSafeInteger(page) ||
+            !Number.isSafeInteger(limit) ||
             page < 1 ||
-            limit < 1
+            limit < 1 ||
+            limit > 200
         ) {
             return res.status(400).json({
                 error: "Invalid page or limit"
@@ -92,12 +95,7 @@ if (relativePath === "") {
 
     // サブフォルダ
 
-    const prefix =
-        relativePath + "/%";
-
-    const deepPrefix =
-        relativePath + "/%/%";
-
+    const prefix = relativePath + "/";
     media = db.prepare(`
         SELECT
             id,
@@ -107,11 +105,12 @@ if (relativePath === "") {
             modified_at,
             taken_at
         FROM media
-        WHERE path LIKE ?
-        AND path NOT LIKE ?
+        WHERE substr(path, 1, ?) = ?
+          AND instr(substr(path, ?), '/') = 0
     `).all(
+        prefix.length,
         prefix,
-        deepPrefix
+        prefix.length + 1
     );
 }
 

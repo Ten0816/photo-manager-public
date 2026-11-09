@@ -56,7 +56,10 @@ const authRoutes =
 const downloadRoutes =
     require("./routes/downloadRoutes");
 
+const { requireStorage } = require("./utils/storageSafety");
+
 const app = express();
+app.set("trust proxy", 1);
 
 const PORT =
     Number(
@@ -94,7 +97,8 @@ app.use(
 // /api/auth 以外のAPIは認証必須
 app.use(
     "/api",
-    requireApiAuth
+    requireApiAuth,
+    requireStorage
 );
 
 app.use(
@@ -175,6 +179,16 @@ app.use(
 app.use(
     "/media",
     requireApiAuth,
+    requireStorage,
+    (req, res, next) => {
+        try {
+            const relative = decodeURIComponent(req.path).replace(/^\/+/, "");
+            const { isMediaFile } = require("./services/mediaService");
+            if (!isMediaFile(relative)) return res.sendStatus(404);
+            require("./utils/pathUtils").getSafeMediaPath(relative);
+            next();
+        } catch { res.sendStatus(400); }
+    },
     express.static(MEDIA_DIR)
 );
 

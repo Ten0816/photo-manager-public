@@ -3,6 +3,7 @@ const path = require("path");
 const exifr = require("exifr");
 
 const db = require("./database");
+const { assertStorageAvailable } = require("./utils/storageSafety");
 
 const MEDIA_DIR =
     process.env.MEDIA_DIR || "/data/Memory";
@@ -45,7 +46,8 @@ async function scanDirectory(
             entry.isDirectory() &&
             (
                 entry.name === ".thumbnails" ||
-                entry.name === ".trash"
+                entry.name === ".trash" ||
+                entry.name === ".incoming"
             )
         ) {
             continue;
@@ -71,6 +73,8 @@ async function scanDirectory(
             continue;
         }
 
+
+        if (!entry.isFile()) continue; // symlinks / special files are ignored
 
         // ----------------------------
         // メディアファイル以外は無視
@@ -145,7 +149,9 @@ async function scanDirectory(
 
         if (
             existing &&
-            existing.taken_at
+            existing.taken_at &&
+            existing.file_size === fileSize &&
+            existing.modified_at === modifiedAt
         ) {
 
             takenAt =
@@ -471,6 +477,8 @@ function getMediaType(
  */
 async function main() {
 
+    await assertStorageAvailable();
+
     console.log(
         "メディア同期を開始します..."
     );
@@ -751,6 +759,9 @@ async function main() {
             }
         );
 
+
+    // Verify the HDD is still mounted before a DB-changing sync.
+    await assertStorageAvailable();
 
     // トランザクションを実行
 

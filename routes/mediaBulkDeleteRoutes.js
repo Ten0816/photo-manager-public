@@ -15,6 +15,7 @@ const {
     getUniqueFilePath
 } = require("../services/mediaService");
 
+const { moveFileNoOverwrite } = require("../utils/fileOperations");
 const router = express.Router();
 
 /**
@@ -125,6 +126,7 @@ router.post("/bulk-delete", async (req, res) => {
         // --------------------------------
 
         const movePlan = [];
+        const plannedTrashPaths = new Set();
 
         for (const media of mediaList) {
 
@@ -200,7 +202,7 @@ router.post("/bulk-delete", async (req, res) => {
 
             for (const plan of movePlan) {
 
-                await fs.rename(
+                await moveFileNoOverwrite(
                     plan.filePath,
                     plan.trashPath
                 );
@@ -340,7 +342,7 @@ router.post("/bulk-delete", async (req, res) => {
                     ),
                     path.parse(
                         plan.media.path
-                    ).name + ".jpg"
+                    ).base + ".thumb.jpg"
                 );
 
 

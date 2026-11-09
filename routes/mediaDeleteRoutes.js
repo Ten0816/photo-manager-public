@@ -15,6 +15,7 @@ const {
     getUniqueFilePath
 } = require("../services/mediaService");
 
+const { moveFileNoOverwrite } = require("../utils/fileOperations");
 const router = express.Router();
 
 /**
@@ -143,7 +144,7 @@ router.delete("/", async (req, res) => {
         /*
          * ファイルをゴミ箱へ移動
          */
-        await fs.rename(
+        await moveFileNoOverwrite(
             filePath,
             trashPath
         );
@@ -241,7 +242,7 @@ router.delete("/", async (req, res) => {
                 ),
                 path.parse(
                     relativePath
-                ).name + ".jpg"
+                ).base + ".thumb.jpg"
             );
 
         const thumbnailPath =

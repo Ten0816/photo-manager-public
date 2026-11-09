@@ -14,6 +14,7 @@ const {
     getExtension
 } = require("../services/mediaService");
 
+const { moveFileNoOverwrite } = require("../utils/fileOperations");
 const router = express.Router();
 
 /**
@@ -153,7 +154,7 @@ router.put("/", async (req, res) => {
                 ),
                 path.parse(
                     relativePath
-                ).name + ".jpg"
+                ).base + ".thumb.jpg"
             );
 
 
@@ -164,7 +165,7 @@ router.put("/", async (req, res) => {
                 ),
                 path.parse(
                     newRelativePath
-                ).name + ".jpg"
+                ).base + ".thumb.jpg"
             );
 
 
@@ -333,7 +334,7 @@ router.put("/", async (req, res) => {
         // 元ファイルを名前変更
         // ====================================================
 
-        await fs.rename(
+        await moveFileNoOverwrite(
             oldPath,
             newPath
         );
@@ -450,6 +451,11 @@ router.put("/", async (req, res) => {
         // ====================================================
         // 完了
         // ====================================================
+
+        // Rebuild cache on demand rather than keeping mismatched metadata.
+        const { invalidateThumbnail } = require("../services/thumbnailService");
+        await invalidateThumbnail(relativePath);
+        await invalidateThumbnail(newRelativePath);
 
         res.json({
             message:
