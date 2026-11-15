@@ -373,3 +373,71 @@
         flex-wrap: wrap;
     }
 }
+
+/* ========================================
+   Fixed Media Selection Toolbar
+======================================== */
+
+/* 選択モードが無効なら非表示 */
+.media-selection-toolbar[hidden] {
+    display: none;
+}
+
+/* 選択モード中は画面下部に固定 */
+.media-selection-toolbar:not([hidden]) {
+    position: fixed;
+
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    z-index: 100;
+
+    width: min(1200px, calc(100% - 24px));
+
+    margin: 0;
+    padding: 12px 16px;
+
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+
+    max-height: 45vh;
+    overflow-y: auto;
+}
+
+/* ツールバーが写真に重ならないよう余白を確保 */
+.media-section:has(.media-selection-toolbar:not([hidden])) {
+    padding-bottom: 140px;
+}
+
+/* スマートフォン向け */
+@media (max-width: 600px) {
+
+    .media-selection-toolbar:not([hidden]) {
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        width: calc(100% - 16px);
+
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .media-selection-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .media-selection-actions button {
+        flex: 1 1 auto;
+        min-height: 40px;
+        font-size: 12px;
+    }
+
+    .media-section:has(.media-selection-toolbar:not([hidden])) {
+        padding-bottom: 230px;
+    }
+}

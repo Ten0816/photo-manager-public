@@ -1,5 +1,7 @@
+
 services:
   photo-manager:
+    image: photo-manager-app:latest
     build: .
     container_name: photo-manager
     user: "1000:1003"
@@ -19,7 +21,7 @@ services:
     restart: unless-stopped
 
   photo-manager-scan:
-    build: .
+    image: photo-manager-app:latest
     container_name: photo-manager-scan
     user: "1000:1003"
 
@@ -50,14 +52,17 @@ services:
   # Automatic consistent SQLite snapshots (on the SD card by default).
   # Copy backups to a second device as protection against SD-card failure.
   photo-manager-backup:
-    build: .
+    image: photo-manager-app:latest
     container_name: photo-manager-backup
     user: "1000:1003"
+
     environment:
       DATABASE_PATH: /app/data/photo-manager.db
       BACKUP_DIR: /app/data/backups
+
     volumes:
       - ./data:/app/data
+
     command:
       - /bin/sh
       - -c
@@ -66,6 +71,7 @@ services:
           node backup-database.js
           sleep 86400
         done
+
     restart: unless-stopped
 
   nginx:

@@ -1,3 +1,4 @@
+
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
@@ -14,10 +15,12 @@ COPY package*.json ./
 
 RUN npm ci --omit=dev
 
-COPY . .
+# アプリケーションファイルを適切な所有者でコピー
+COPY --chown=1000:1003 . .
 
+# データディレクトリを作成
 RUN mkdir -p /app/data \
-    && chown -R 1000:1003 /app
+    && chown 1000:1003 /app/data
 
 USER 1000:1003
 
