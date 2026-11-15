@@ -1,0 +1,138 @@
+'use strict';
+
+// Read-only by default. --apply ONLY reconciles operations where ALL items
+// unambiguously agree (all at source or all at destination). Never moves or
+// deletes physical files. Run while web and scan services are stopped.
+const fs = require('fs/promises');
+const db = require('./database');
+const { getSafeMediaPath } = require('./utils/pathUtils');
+const { assertStorageAvailable } = require('./utils/storageSafety');
+const { pendingOperations } = require('./utils/operationJournal');
+
+async function exists(file) {
+    try {
+        const stat = await fs.lstat(file);
+        return stat.isFile() && !stat.isSymbolicLink();
+    } catch (e) {
+        if (e.code === 'ENOENT') return false;
+        throw e;
+    }
+}
+
+async function inspectOperation(record) {
+    if (record.operation !== 'bulk_move') {
+        throw new Error(`Unknown operation: ${record.operation}`);
+    }
+
+    const entries = JSON.parse(record.payload);
+    const items = [];
+
+    for (const entry of entries) {
+        const from = getSafeMediaPath(entry.from);
+        const to = getSafeMediaPath(entry.to);
+
+        const [source, target] = await Promise.all([
+            exists(from),
+            exists(to)
+        ]);
+
+        const media = db.prepare(
+            'SELECT path FROM media WHERE id = ?'
+        ).get(entry.id);
+
+        items.push({
+            ...entry,
+            source,
+            target,
+            dbPath: media?.path ?? null
+        });
+    }
+
+    const allAtSource = items.every(
+        x => x.source && !x.target && x.dbPath === x.from
+    );
+
+    const allAtTarget = items.every(
+        x => !x.source && x.target &&
+        (x.dbPath === x.from || x.dbPath === x.to)
+    );
+
+    return {
+        id: record.id,
+        state: record.state,
+        resolution: allAtSource
+            ? 'cancel'
+            : allAtTarget
+                ? 'commit'
+                : 'manual',
+        items
+    };
+}
+
+async function main() {
+    await assertStorageAvailable();
+
+    const apply = process.argv.includes('--apply');
+    const operations = pendingOperations(db);
+
+    if (!operations.length) {
+        console.log('未解決の操作はありません。');
+        return;
+    }
+
+    let unresolved = false;
+
+    for (const record of operations) {
+        const report = await inspectOperation(record);
+        console.log(JSON.stringify(report, null, 2));
+
+        if (report.resolution === 'manual') {
+            unresolved = true;
+
+            if (apply) {
+                db.prepare(
+                    "UPDATE file_operation_journal SET state = 'needs_attention' WHERE id = ?"
+                ).run(record.id);
+            }
+
+            continue;
+        }
+
+        if (!apply) continue;
+
+        db.transaction(() => {
+            if (report.resolution === 'commit') {
+                const update = db.prepare(
+                    'UPDATE media SET path = ? WHERE id = ? AND path = ?'
+                );
+
+                for (const item of report.items) {
+                    if (item.dbPath === item.to) continue;
+
+                    if (update.run(
+                        item.to,
+                        item.id,
+                        item.from
+                    ).changes !== 1) {
+                        throw new Error('DB mismatch');
+                    }
+                }
+            }
+
+            db.prepare(
+                'DELETE FROM file_operation_journal WHERE id = ?'
+            ).run(record.id);
+        })();
+
+        console.log(
+            `Operation ${record.id}: ${report.resolution} applied (no file was moved).`
+        );
+    }
+
+    if (unresolved) process.exitCode = 2;
+}
+
+main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

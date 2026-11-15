@@ -3,6 +3,7 @@ const path = require("path");
 const exifr = require("exifr");
 
 const db = require("./database");
+const { assertNoPendingOperations } = require("./utils/operationJournal");
 const { assertStorageAvailable } = require("./utils/storageSafety");
 
 const MEDIA_DIR =
@@ -762,6 +763,9 @@ async function main() {
 
     // Verify the HDD is still mounted before a DB-changing sync.
     await assertStorageAvailable();
+
+    // 未完了のファイル操作がある場合、DBの同期を停止する。
+    assertNoPendingOperations(db);
 
     // トランザクションを実行
 

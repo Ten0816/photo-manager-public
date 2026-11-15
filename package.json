@@ -10,7 +10,8 @@
     "cleanup:trash": "node cleanup-trash.js",
     "backup:db": "node backup-database.js",
     "audit": "node audit-storage.js",
-    "thumbnails:prune": "node prune-thumbnails.js"
+    "thumbnails:prune": "node prune-thumbnails.js",
+    "operations:check": "node check-operations.js"
   },
   "keywords": [],
   "author": "",

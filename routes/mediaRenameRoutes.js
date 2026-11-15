@@ -15,6 +15,71 @@ const {
 } = require("../services/mediaService");
 
 const { moveFileNoOverwrite } = require("../utils/fileOperations");
+
+const {
+    acquireLock,
+    releaseLock
+} = require("../utils/fileOperationLock");
+
+// 名前変更APIの実行中、共通のファイル操作ロックを保持する。
+async function withMediaRenameLock(req, res, callback) {
+    let owner = null;
+
+    try {
+        owner = acquireLock(db, "media_rename");
+        await callback();
+
+    } catch (error) {
+
+        if (
+            error.code === "FILE_OPERATION_LOCKED" ||
+            error.code === "PENDING_OPERATION"
+        ) {
+            if (!res.headersSent) {
+                res.status(409).json({
+                    error: "別のファイル操作が実行中、または復旧待ちです。"
+                });
+            }
+            return;
+        }
+
+        console.error("Media rename lock error:", error);
+
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: "Failed to rename media"
+            });
+        }
+
+    } finally {
+
+        if (owner !== null) {
+            const released = releaseLock(db, owner);
+
+            if (!released) {
+                console.error(
+                    "Failed to release media rename lock"
+                );
+            }
+        }
+    }
+}
+
+
+const {
+    beginMediaRenameWithIdentity,
+    completeMediaRename
+} = require("../utils/mediaRenameJournal");
+
+const {
+    invalidateThumbnail
+} = require("../services/thumbnailService");
+
+
+const {
+    cancelUnchangedMediaRename
+} = require("../utils/mediaRenameCancellation");
+
 const router = express.Router();
 
 /**
@@ -24,477 +89,246 @@ const router = express.Router();
  *
  * 元ファイルとサムネイルを同時に名前変更する
  */
-router.put("/", async (req, res) => {
+router.put("/", async (req, res) =>
+    withMediaRenameLock(req, res, async () => {
+
+    let journalId = null;
+    let renamePlan = null;
 
     try {
+        const relativePath = req.query.path;
+        const inputName = req.body?.name;
 
-        const relativePath =
-            req.query.path;
-
-
-        if (!relativePath) {
-
-            return res.status(400).json({
-                error:
-                    "Media path is required"
-            });
-        }
-
-
-        const inputName =
-            req.body.name;
-
-
+        // 入力チェック
         if (
-            !validateMediaName(
-                inputName
-            )
+            typeof relativePath !== "string" ||
+            !relativePath
         ) {
-
             return res.status(400).json({
-                error:
-                    "Invalid file name"
+                error: "Media path is required"
             });
         }
 
+        if (!validateMediaName(inputName)) {
+            return res.status(400).json({
+                error: "Invalid file name"
+            });
+        }
 
-        // ====================================================
-        // 元ファイルの拡張子を維持
-        // ====================================================
-
-        const oldExtension =
-            getExtension(
-                relativePath
-            );
-
-
-        const inputExtension =
-            path.extname(
-                inputName
-            );
-
-
-        const newBaseName =
-            path.basename(
-                inputName,
-                inputExtension
-            );
-
-
-        const newName =
-            newBaseName +
-            oldExtension;
-
-
-        // ====================================================
-        // 元ファイル
-        // ====================================================
-
-        const oldPath =
-            getSafeMediaPath(
-                relativePath
-            );
-
-
-        const directory =
-            path.dirname(
-                oldPath
-            );
-
-
-        const newPath =
-            path.join(
-                directory,
-                newName
-            );
-
-
-        // ====================================================
-        // 新しい相対パス
-        // ====================================================
-
-        const relativeDirectory =
-            path.dirname(
-                relativePath
-            );
-
-
-        const newRelativePath =
-            path.join(
-                relativeDirectory === "."
-                    ? ""
-                    : relativeDirectory,
-                newName
-            );
-
-
-        getSafeMediaPath(
-            newRelativePath
+        // 元の拡張子を維持
+        const oldExtension = getExtension(relativePath);
+        const inputExtension = path.extname(inputName);
+        const newBaseName = path.basename(
+            inputName,
+            inputExtension
         );
 
+        const newName = newBaseName + oldExtension;
 
-        // ====================================================
-        // サムネイルパス
-        //
-        // 例:
-        //
-        // photo.jpg
-        // ↓
-        // thumbnails/photo.jpg
-        //
-        // video.mp4
-        // ↓
-        // thumbnails/video.jpg
-        // ====================================================
+        // 安全なパスを取得
+        const oldPath = getSafeMediaPath(relativePath);
 
-        const oldThumbnailRelativePath =
-            path.join(
-                path.dirname(
-                    relativePath
-                ),
-                path.parse(
-                    relativePath
-                ).base + ".thumb.jpg"
-            );
+        const relativeDirectory = path.dirname(relativePath);
 
+        const newRelativePath = path.join(
+            relativeDirectory === "."
+                ? ""
+                : relativeDirectory,
+            newName
+        );
 
-        const newThumbnailRelativePath =
-            path.join(
-                path.dirname(
-                    newRelativePath
-                ),
-                path.parse(
-                    newRelativePath
-                ).base + ".thumb.jpg"
-            );
+        const newPath = getSafeMediaPath(newRelativePath);
 
-
-        const oldThumbnailPath =
-            getThumbnailPath(
-                oldThumbnailRelativePath
-            );
-
-
-        const newThumbnailPath =
-            getThumbnailPath(
-                newThumbnailRelativePath
-            );
-
-
-        // ====================================================
-        // 同じファイル名なら何もしない
-        // ====================================================
-
-        if (
-            relativePath ===
-            newRelativePath
-        ) {
-
+        // 変更なし
+        if (relativePath === newRelativePath) {
             return res.json({
-                message:
-                    "Media name is unchanged",
-
-                oldPath:
-                    relativePath,
-
-                newPath:
-                    newRelativePath
+                message: "Media name is unchanged",
+                oldPath: relativePath,
+                newPath: newRelativePath
             });
         }
 
+        // DB上の対象を確認
+        const media = db.prepare(`
+            SELECT id, path
+            FROM media
+            WHERE path = ?
+        `).get(relativePath);
 
-        // ====================================================
-        // 新しいファイル名の重複確認
-        // ====================================================
-
-        try {
-
-            await fs.access(
-                newPath
-            );
-
-
-            return res.status(409).json({
-                error:
-                    "同じ名前のファイルがすでに存在します。"
+        if (!media) {
+            return res.status(404).json({
+                error: "Media not found in database"
             });
-
-        } catch (error) {
-
-            if (
-                error.code !==
-                "ENOENT"
-            ) {
-
-                throw error;
-            }
         }
 
-
-        // ====================================================
-        // 元ファイル存在確認
-        // ====================================================
+        // 元ファイルの確認
+        let stat;
 
         try {
-
-            const stat =
-                await fs.stat(
-                    oldPath
-                );
-
-
-            if (!stat.isFile()) {
-
-                return res.status(400).json({
-                    error:
-                        "Target is not a file"
-                });
-            }
-
+            stat = await fs.lstat(oldPath);
         } catch (error) {
-
-            if (
-                error.code ===
-                "ENOENT"
-            ) {
-
+            if (error.code === "ENOENT") {
                 return res.status(404).json({
-                    error:
-                        "Media not found"
+                    error: "Media file not found"
                 });
             }
 
             throw error;
         }
 
+        if (!stat.isFile() || stat.isSymbolicLink()) {
+            return res.status(400).json({
+                error: "Target is not a regular file"
+            });
+        }
 
-        // ====================================================
-        // サムネイルが存在するか確認
-        //
-        // 無い場合は、元ファイルだけ変更する。
-        // ====================================================
-
-        let thumbnailExists = true;
-
-
+        // 同名ファイルの存在確認
         try {
+            await fs.lstat(newPath);
 
-            await fs.access(
-                oldThumbnailPath
-            );
+            return res.status(409).json({
+                error: "同じ名前のファイルがすでに存在します。"
+            });
 
         } catch (error) {
-
-            if (
-                error.code ===
-                "ENOENT"
-            ) {
-
-                thumbnailExists = false;
-
-            } else {
-
+            if (error.code !== "ENOENT") {
                 throw error;
             }
         }
 
+        // DB上でも重複を確認
+        const existing = db.prepare(`
+            SELECT id
+            FROM media
+            WHERE path = ?
+        `).get(newRelativePath);
 
-        // ====================================================
-        // 新しいサムネイルが既に存在するか確認
-        // ====================================================
-
-        if (thumbnailExists) {
-
-            try {
-
-                await fs.access(
-                    newThumbnailPath
-                );
-
-
-                return res.status(409).json({
-                    error:
-                        "同じ名前のサムネイルがすでに存在します。"
-                });
-
-            } catch (error) {
-
-                if (
-                    error.code !==
-                    "ENOENT"
-                ) {
-
-                    throw error;
-                }
-            }
+        if (existing) {
+            return res.status(409).json({
+                error: "移動先のパスがDBに登録されています。"
+            });
         }
 
+        const plan = {
+            id: media.id,
+            from: relativePath,
+            to: newRelativePath
+        };
 
-        // ====================================================
-        // 元ファイルを名前変更
-        // ====================================================
+        renamePlan = plan;
+
+        // ==========================================
+        // ジャーナル登録
+        // ==========================================
+
+        journalId = await beginMediaRenameWithIdentity(
+            db,
+            plan,
+            oldPath
+        );
+
+        // ==========================================
+        // 実ファイルの名前変更
+        // ==========================================
 
         await moveFileNoOverwrite(
             oldPath,
             newPath
         );
 
+        // ==========================================
+        // SQLite更新とジャーナル完了
+        // ==========================================
 
-        // ====================================================
-        // サムネイルを名前変更
-        // ====================================================
+        completeMediaRename(
+            db,
+            journalId,
+            plan
+        );
 
-        if (thumbnailExists) {
+        journalId = null;
 
-            try {
+        // ==========================================
+        // サムネイルの無効化
+        // ==========================================
 
-                await fs.rename(
-                    oldThumbnailPath,
-                    newThumbnailPath
-                );
+        // キャッシュ削除失敗は名前変更失敗としない。
+        await invalidateThumbnail(relativePath)
+            .catch(console.error);
 
-            } catch (error) {
+        await invalidateThumbnail(newRelativePath)
+            .catch(console.error);
 
-                // サムネイル変更に失敗した場合、
-                // 元ファイルを元の名前へ戻す。
-                try {
-
-                    await fs.rename(
-                        newPath,
-                        oldPath
-                    );
-
-                } catch (rollbackError) {
-
-                    console.error(
-                        "Failed to rollback media rename:",
-                        rollbackError
-                    );
-                }
-
-
-                throw error;
-            }
-        }
-
-
-        // ====================================================
-        // SQLite更新
-        // ====================================================
-
-        try {
-
-            db.prepare(`
-                UPDATE media
-                SET path = ?
-                WHERE path = ?
-            `).run(
-                newRelativePath,
-                relativePath
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Failed to update media database:",
-                error
-            );
-
-
-            // ------------------------------------------------
-            // サムネイルを元へ戻す
-            // ------------------------------------------------
-
-            if (thumbnailExists) {
-
-                try {
-
-                    await fs.rename(
-                        newThumbnailPath,
-                        oldThumbnailPath
-                    );
-
-                } catch (rollbackError) {
-
-                    console.error(
-                        "Failed to rollback thumbnail rename:",
-                        rollbackError
-                    );
-                }
-            }
-
-
-            // ------------------------------------------------
-            // メディア本体を元へ戻す
-            // ------------------------------------------------
-
-            try {
-
-                await fs.rename(
-                    newPath,
-                    oldPath
-                );
-
-            } catch (rollbackError) {
-
-                console.error(
-                    "Failed to rollback media rename:",
-                    rollbackError
-                );
-            }
-
-
-            throw error;
-        }
-
-
-        // ====================================================
-        // 完了
-        // ====================================================
-
-        // Rebuild cache on demand rather than keeping mismatched metadata.
-        const { invalidateThumbnail } = require("../services/thumbnailService");
-        await invalidateThumbnail(relativePath);
-        await invalidateThumbnail(newRelativePath);
-
-        res.json({
-            message:
-                "Media renamed",
-
-            oldPath:
-                relativePath,
-
-            newPath:
-                newRelativePath
+        return res.json({
+            message: "Media renamed",
+            oldPath: relativePath,
+            newPath: newRelativePath
         });
-
 
     } catch (error) {
 
-        console.error(
-            "Rename media error:",
-            error
-        );
+        console.error("Rename media error:", error);
 
+        // ジャーナル登録後のエラーは
+        // 自動削除・自動ロールバックしない。
+        // 復旧コマンドによる確認を要求する。
+        if (journalId !== null) {
 
-        if (
-            error.code ===
-            "ENOENT"
-        ) {
+            let cancelled = false;
 
-            return res.status(404).json({
-                error:
-                    "Media not found"
+            try {
+                if (renamePlan !== null) {
+                    cancelled =
+                        await cancelUnchangedMediaRename(
+                            db,
+                            journalId,
+                            renamePlan
+                        );
+                }
+            } catch (cancelError) {
+                console.error(
+                    "Rename cancellation verification failed:",
+                    cancelError
+                );
+            }
+
+            // 元の状態を確認できた場合だけ
+            // ジャーナルを取り消す。
+            if (cancelled) {
+                return res.status(500).json({
+                    error: "名前変更に失敗しました。",
+                    recoveryRequired: false,
+                    message:
+                        "ファイルとDBが変更前の状態であることを確認しました。"
+                });
+            }
+
+            // 状態が不明ならジャーナルを保持する。
+            return res.status(500).json({
+                error: "名前変更が中断されました。",
+                recoveryRequired: true,
+                message:
+                    "操作履歴が残っています。管理者による確認が必要です。"
             });
         }
 
+        if (error.code === "EEXIST") {
+            return res.status(409).json({
+                error: "同名ファイルが存在します。"
+            });
+        }
 
-        res.status(500).json({
-            error:
-                "Failed to rename media"
+        if (error.code === "ENOENT") {
+            return res.status(404).json({
+                error: "Media file not found"
+            });
+        }
+
+        return res.status(500).json({
+            error: "Failed to rename media"
         });
     }
-});
+}));
 
 
 /**

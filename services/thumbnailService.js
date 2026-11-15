@@ -8,7 +8,45 @@ const { isMediaFile } = require('./mediaService');
 const maxWorkers = Math.max(1, Math.min(4, Number(process.env.THUMBNAIL_WORKERS) || 2));
 const jobs = [];
 const inFlight = new Map();
+
 let active = 0;
+
+/**
+ * サムネイル単位の非同期ロック。
+ *
+ * 同じキャッシュへの生成・削除を直列化する。
+ *
+ * 注意:
+ * Node.jsプロセス内でのみ有効。
+ */
+const thumbnailLocks = new Map();
+
+async function withThumbnailLock(key, task) {
+    const previous =
+        thumbnailLocks.get(key) || Promise.resolve();
+
+    let release;
+
+    const current = new Promise(resolve => {
+        release = resolve;
+    });
+
+    thumbnailLocks.set(key, current);
+
+    // 先行処理の完了を待つ。
+    await previous;
+
+    try {
+        return await task();
+    } finally {
+        if (thumbnailLocks.get(key) === current) {
+            thumbnailLocks.delete(key);
+        }
+
+        release();
+    }
+}
+
 
 function runQueue() {
     while (active < maxWorkers && jobs.length) {
@@ -37,7 +75,7 @@ function getTrashThumbnailFilePath(trashRelativePath) {
     return getThumbnailPath(path.join('.trash', parsed.dir, parsed.base + '.thumb.jpg'));
 }
 
-async function createThumbnailForFile(source, thumbnailPath) {
+async function createThumbnailForFileUnlocked(source, thumbnailPath) {
     if (!isMediaFile(source)) throw new Error('Unsupported media type');
     const sourceStat = await fs.stat(source);
     if (!sourceStat.isFile()) throw new Error('Not a media file');
@@ -87,6 +125,20 @@ async function createThumbnailForFile(source, thumbnailPath) {
     finally { inFlight.delete(thumbnailPath); }
 }
 
+
+/**
+ * 同じサムネイルに対する生成と削除を直列化する。
+ */
+async function createThumbnailForFile(source, thumbnailPath) {
+    return withThumbnailLock(
+        thumbnailPath,
+        () => createThumbnailForFileUnlocked(
+            source,
+            thumbnailPath
+        )
+    );
+}
+
 async function createThumbnail(relativePath) {
     return createThumbnailForFile(getSafeMediaPath(relativePath), getThumbnailFilePath(relativePath));
 }
@@ -96,10 +148,13 @@ async function createTrashThumbnail(trashRelativePath) {
 }
 async function invalidateThumbnail(relativePath) {
     const filename = getThumbnailFilePath(relativePath);
-    await Promise.allSettled([
-        fs.rm(filename, { force: true }),
-        fs.rm(filename + '.json', { force: true })
-    ]);
+
+    return withThumbnailLock(filename, async () => {
+        await Promise.all([
+            fs.rm(filename, { force: true }),
+            fs.rm(filename + '.json', { force: true })
+        ]);
+    });
 }
 async function invalidateTrashThumbnail(trashRelativePath) {
     const filename = getTrashThumbnailFilePath(trashRelativePath);
@@ -112,5 +167,6 @@ module.exports = {
     createThumbnail, createTrashThumbnail, createThumbnailForFile,
     invalidateThumbnail, invalidateTrashThumbnail,
     getThumbnailPath: getThumbnailFilePath,
-    getThumbnailFilePath, getTrashThumbnailFilePath
+    getThumbnailFilePath, getTrashThumbnailFilePath,
+    _withThumbnailLock: withThumbnailLock
 };

@@ -10,6 +10,132 @@ const {
 
 const { moveFileNoOverwrite } = require("../utils/fileOperations");
 const { invalidateThumbnail } = require("../services/thumbnailService");
+const {
+    assertNoPendingOperations,
+    beginBulkMove,
+    completeBulkMove
+} = require("../utils/operationJournal");
+
+const {
+    acquireLock,
+    releaseLock
+} = require("../utils/fileOperationLock");
+
+
+// ロールバック後に実ファイル・DB・ジャーナルを検証する。
+// すべて正常な場合だけジャーナルを削除する。
+async function verifyAndCancelRolledBackMove(journalId, plans) {
+
+    if (journalId === null) {
+        return false;
+    }
+
+    const journal = db.prepare(`
+        SELECT operation, state, payload
+        FROM file_operation_journal
+        WHERE id = ?
+    `).get(journalId);
+
+    if (
+        !journal ||
+        journal.operation !== "bulk_move" ||
+        journal.state !== "pending"
+    ) {
+        return false;
+    }
+
+    let entries;
+
+    try {
+        entries = JSON.parse(journal.payload);
+    } catch {
+        return false;
+    }
+
+    if (!Array.isArray(entries) || entries.length !== plans.length) {
+        return false;
+    }
+
+    for (let i = 0; i < plans.length; i++) {
+
+        const plan = plans[i];
+        const entry = entries[i];
+
+        if (
+            entry.id !== plan.media.id ||
+            entry.from !== plan.media.path ||
+            entry.to !== plan.newRelativePath
+        ) {
+            return false;
+        }
+
+        // 移動元は通常のファイルでなければならない。
+        let source;
+
+        try {
+            source = await fs.lstat(plan.oldPath);
+        } catch {
+            return false;
+        }
+
+        if (!source.isFile() || source.isSymbolicLink()) {
+            return false;
+        }
+
+        // 移動先には対象ファイルが存在してはいけない。
+        try {
+            await fs.lstat(plan.newPath);
+
+            return false;
+
+        } catch (error) {
+
+            if (error.code !== "ENOENT") {
+                return false;
+            }
+        }
+
+        const media = db.prepare(`
+            SELECT path
+            FROM media
+            WHERE id = ?
+        `).get(plan.media.id);
+
+        if (!media || media.path !== plan.media.path) {
+            return false;
+        }
+    }
+
+    // DBの状態を再確認してジャーナルを削除する。
+    // ファイル状態の検査はロック保持中に実施している。
+    return db.transaction(() => {
+
+        for (const plan of plans) {
+
+            const media = db.prepare(`
+                SELECT path
+                FROM media
+                WHERE id = ?
+            `).get(plan.media.id);
+
+            if (!media || media.path !== plan.media.path) {
+                return false;
+            }
+        }
+
+        const result = db.prepare(`
+            DELETE FROM file_operation_journal
+            WHERE id = ?
+              AND operation = 'bulk_move'
+              AND state = 'pending'
+              AND payload = ?
+        `).run(journalId, journal.payload);
+
+        return result.changes === 1;
+
+    }).immediate();
+}
+
 const router = express.Router();
 
 /**
@@ -81,9 +207,15 @@ router.post("/bulk-move", async (req, res) => {
 
 
     let movedFiles = [];
+    let journalId = null;
+    let lockOwner = null;
 
 
     try {
+
+        lockOwner = acquireLock(db, "bulk_move");
+
+        assertNoPendingOperations(db);
 
         // --------------------------------
         // 移動先の安全性確認
@@ -237,6 +369,8 @@ router.post("/bulk-move", async (req, res) => {
         // 実ファイル移動
         // --------------------------------
 
+        journalId = beginBulkMove(db, movePlan);
+
         try {
 
             for (const plan of movePlan) {
@@ -261,7 +395,7 @@ router.post("/bulk-move", async (req, res) => {
 
                 try {
 
-                    await fs.rename(
+                    await moveFileNoOverwrite(
                         plan.newPath,
                         plan.oldPath
                     );
@@ -275,68 +409,48 @@ router.post("/bulk-move", async (req, res) => {
                 }
             }
 
-            throw error;
-        }
+            // ロールバック後の状態を検証する。
+            // 完全に元の状態へ戻った場合だけ履歴を削除する。
+            try {
 
-
-        // --------------------------------
-        // DB更新
-        // --------------------------------
-
-        try {
-
-            const transaction =
-                db.transaction(() => {
-
-                    const updateMedia =
-                        db.prepare(`
-                            UPDATE media
-                            SET path = ?
-                            WHERE id = ?
-                        `);
-
-
-                    for (const plan of movePlan) {
-
-                        updateMedia.run(
-                            plan.newRelativePath,
-                            plan.media.id
-                        );
-                    }
-                });
-
-
-            transaction();
-
-        } catch (error) {
-
-            // DB更新失敗時は
-            // ファイルを元に戻す
-
-            for (
-                const plan of
-                [...movedFiles].reverse()
-            ) {
-
-                try {
-
-                    await fs.rename(
-                        plan.newPath,
-                        plan.oldPath
+                const restored =
+                    await verifyAndCancelRolledBackMove(
+                        journalId,
+                        movePlan
                     );
 
-                } catch (rollbackError) {
+                if (restored) {
+
+                    console.log(
+                        "Bulk move rollback verified; journal cleared."
+                    );
+
+                    journalId = null;
+
+                } else {
 
                     console.error(
-                        "Failed to rollback bulk move:",
-                        rollbackError
+                        "Bulk move requires recovery; journal retained."
                     );
                 }
+
+            } catch (verificationError) {
+
+                console.error(
+                    "Rollback verification failed; journal retained:",
+                    verificationError
+                );
             }
 
             throw error;
         }
 
+
+        // --------------------------------
+        // DB更新と操作履歴の完了
+        // SQLiteトランザクションで同時に処理
+        completeBulkMove(db, journalId, movePlan);
+        journalId = null;
 
         // Cache is disposable; never roll back a successful move for cache cleanup.
         for (const plan of movePlan) {
@@ -358,6 +472,18 @@ router.post("/bulk-move", async (req, res) => {
         console.error(error);
 
 
+        if (error.code === "FILE_OPERATION_LOCKED") {
+            return res.status(409).json({
+                error: "別のファイル操作が実行中です。"
+            });
+        }
+
+        if (error.code === "PENDING_OPERATION") {
+            return res.status(409).json({
+                error: "未解決のファイル操作があります。operations:check を実行してください。"
+            });
+        }
+
         if (error.code === "EEXIST") {
             return res.status(409).json({error: "同名ファイルが移動先に存在します"});
         }
@@ -377,6 +503,15 @@ router.post("/bulk-move", async (req, res) => {
             error:
                 "Failed to move media"
         });
+    } finally {
+        if (lockOwner !== null) {
+            const released = releaseLock(db, lockOwner);
+            if (!released) {
+                console.error(
+                    "Failed to release bulk move lock"
+                );
+            }
+        }
     }
 });
 
